@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { ExerciseTechniqueModal } from './ExerciseTechniqueModal'
+import { getExerciseDetails } from '../services/exercises'
 import {
   useRoutines,
   type ExerciseSet,
@@ -132,6 +133,28 @@ export function CollapsibleExerciseCard({
   const { addSetToExercise, removeSetFromExercise, toggleSetCompleted } = useRoutines()
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const [isTechniqueModalOpen, setIsTechniqueModalOpen] = useState(false)
+  const [imgSrc, setImgSrc] = useState<string>(exercise.gifUrl || '')
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    if (exercise.gifUrl) {
+      setImgSrc(exercise.gifUrl)
+      setHasError(false)
+      return
+    }
+
+    let isMounted = true
+    getExerciseDetails(exercise.id, exercise.name).then((details) => {
+      if (isMounted && details?.gifUrl) {
+        setImgSrc(details.gifUrl)
+        setHasError(false)
+      }
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [exercise.id, exercise.name, exercise.gifUrl])
 
   const setsCount = exercise.sets.length
   const completedCount = exercise.sets.filter((s) => s.completed).length
@@ -155,14 +178,13 @@ export function CollapsibleExerciseCard({
           aria-expanded={isOpen}
         >
           <div className="exercise-header-thumb">
-            {exercise.gifUrl ? (
+            {!hasError && imgSrc ? (
               <img
-                src={exercise.gifUrl}
+                src={imgSrc}
                 alt={exercise.name}
                 loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
+                decoding="async"
+                onError={() => setHasError(true)}
               />
             ) : (
               <div className="exercise-thumb-fallback">
@@ -177,12 +199,6 @@ export function CollapsibleExerciseCard({
             </div>
 
             <div className="exercise-header-meta">
-              <span className={`exercise-progress-badge ${isAllCompleted ? 'all-done' : ''}`}>
-                {completedCount}/{setsCount}
-              </span>
-              {exercise.body_part && (
-                <span className="exercise-bodypart-badge">{exercise.body_part}</span>
-              )}
               <button
                 type="button"
                 className="exercise-technique-btn"
@@ -194,8 +210,14 @@ export function CollapsibleExerciseCard({
                 title="Consultar técnica de ejecución"
               >
                 <Info size={13} />
-                <span>Ver técnica</span>
+                <span>Info</span>
               </button>
+              <span className={`exercise-progress-badge ${isAllCompleted ? 'all-done' : ''}`}>
+                {completedCount}/{setsCount}
+              </span>
+              {exercise.body_part && (
+                <span className="exercise-bodypart-badge">{exercise.body_part}</span>
+              )}
             </div>
           </div>
 

@@ -1,20 +1,28 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
   Calendar,
   CheckCircle2,
+  Clock,
   Dumbbell,
   Info,
+  LogIn,
+  LogOut,
   Mail,
+  Pencil,
   Plus,
+  Shield,
   ShieldCheck,
   Sparkles,
   Trash2,
   User,
+  UserPlus,
   X,
 } from 'lucide-react'
 import { ActivityHeatmap, QUARTER_MONTHS } from '../components/ActivityHeatmap'
+import { EditProfileModal } from '../components/EditProfileModal'
 import { EditWorkoutLogModal } from '../components/EditWorkoutLogModal'
 import { ManualWorkoutModal } from '../components/ManualWorkoutModal'
 import { WorkoutLogAccordionItem } from '../components/WorkoutLogAccordionItem'
@@ -24,6 +32,7 @@ import {
   useHistory,
   type WorkoutLog,
 } from '../context/HistoryContext'
+import { useAuth } from '../hooks/useAuth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,7 +43,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MOCK_USER_PROFILE, type UserProfile } from '../services/profile'
+import { cn } from '@/lib/utils'
+import { checkProfileUpdateCooldown, MOCK_USER_PROFILE, type UserProfile } from '../services/profile'
 
 export { MOCK_USER_PROFILE, type UserProfile }
 
@@ -44,17 +54,38 @@ export interface ProfileScreenProps {
 }
 
 function formatTime(isoString: string): string {
-  const date = new Date(isoString)
-  return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+  return new Date(isoString).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDateDisplay(dateStr?: string | null): string {
+  if (!dateStr) return 'No especificada'
+  const parts = dateStr.split('-')
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`
+  return dateStr
+}
+
+function formatLastUpdateDisplay(isoStr?: string | null): string {
+  if (!isoStr) return 'Nunca'
+  const date = new Date(isoStr)
+  if (isNaN(date.getTime())) return 'Nunca'
+  return date.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 export function ProfileScreen({
   initialTab = 'info',
   onGoToRoutines,
 }: ProfileScreenProps) {
+  const { user, profile, isAuthenticated, isLoading: authLoading, signOut, refreshProfile } = useAuth()
   const [activeTab, setActiveTab] = useState<'info' | 'history'>(initialTab)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-  // --- LÓGICA DE HISTORIAL (Preservada intacta de HistoryScreen) ---
+  // --- LÓGICA DE HISTORIAL ---
   const { logs, deleteWorkoutLog, getLogsByDate } = useHistory()
 
   const today = useMemo(() => new Date(), [])
@@ -88,7 +119,8 @@ export function ProfileScreen({
   }, [logs, quarterDateRange])
 
   const selectedDayLogs: WorkoutLog[] = useMemo(() => {
-    return selectedDateKey ? getLogsByDate(selectedDateKey) : []
+    if (!selectedDateKey) return []
+    return getLogsByDate(selectedDateKey)
   }, [selectedDateKey, getLogsByDate])
 
   // Métricas del historial
@@ -96,9 +128,63 @@ export function ProfileScreen({
   const totalExercisesCompleted = logs.reduce((acc, l) => acc + l.totalExercises, 0)
   const activeQuarterLabel = QUARTER_MONTHS[selectedQuarter]?.label || ''
 
+  const displayName = profile?.nombre || user?.user_metadata?.nombre || user?.user_metadata?.name || 'Atleta'
+  const displayEmail = profile?.email || user?.email || ''
+  const displayBirthDate = profile?.fecha_nacimiento
+  const lastProfileUpdate = profile?.last_profile_update
+  const isAdmin = profile?.role === 'admin'
+
+  const cooldownStatus = checkProfileUpdateCooldown(lastProfileUpdate)
+
+  // Early return: Vista para usuarios no autenticados
+  if (!isAuthenticated && !authLoading) {
+    return (
+      <main className="app-shell profile-shell">
+        <header className="app-header mb-4">
+          <div className="brand-mark history-brand-mark">
+            <User size={22} strokeWidth={2.5} />
+          </div>
+          <div>
+            <p className="eyebrow">MI CUENTA</p>
+            <h1>Perfil</h1>
+          </div>
+        </header>
+
+        <Card className="profile-empty-state-card">
+          <div className="profile-empty-icon-wrap">
+            <User size={32} strokeWidth={2.5} />
+          </div>
+          <div>
+            <h2 className="profile-empty-title">
+              Debes iniciar sesión para ver tu perfil e historial
+            </h2>
+            <p className="profile-empty-desc">
+              Accede con tu cuenta tu mapa de actividad y tus registros de entrenamiento.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2.5 w-full mt-2">
+            <Link href="/login" className="w-full">
+              <Button className="auth-primary-btn">
+                <LogIn size={16} />
+                <span>Iniciar Sesión</span>
+              </Button>
+            </Link>
+            <Link href="/register" className="w-full">
+              <Button variant="outline" className="auth-secondary-btn">
+                <UserPlus size={16} />
+                <span>Registrarme</span>
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      </main>
+    )
+  }
+
+  // Vista principal: Usuario autenticado
   return (
-    <main className="app-shell">
-      {/* Encabezado principal del perfil */}
+    <main className="app-shell profile-shell">
       <header className="app-header">
         <div className="brand-mark history-brand-mark">
           <User size={22} strokeWidth={2.5} />
@@ -109,26 +195,46 @@ export function ProfileScreen({
         </div>
       </header>
 
-      {/* Navegación por Pestañas (Tabs) */}
       <Tabs
         value={activeTab}
         onValueChange={(val) => setActiveTab(val as 'info' | 'history')}
         className="w-full flex flex-col gap-4"
       >
-        <TabsList className="w-full grid grid-cols-2 h-11 p-1 bg-[#eef4ef] rounded-xl border border-[#dbe4dc]">
+        <TabsList className="profile-tabs-track">
           <TabsTrigger
             value="info"
-            className="flex items-center justify-center gap-2 rounded-lg text-sm font-semibold py-2 transition-all data-active:bg-[#1f5844] data-active:text-white data-active:shadow-sm text-[#6e8076]"
+            className={cn(
+              "profile-tab-pill",
+              activeTab === 'info' ? "profile-tab-active" : "profile-tab-inactive"
+            )}
           >
-            <User size={16} />
-            <span>Info</span>
+            <div
+              className={cn(
+                "profile-tab-icon-wrap",
+                activeTab === 'info' ? "bg-white/20 text-white" : "bg-[#eef4ef] text-[#1f5844]"
+              )}
+            >
+              <User size={15} strokeWidth={activeTab === 'info' ? 2.5 : 2} />
+            </div>
+            <span className="tracking-tight text-sm">Información</span>
           </TabsTrigger>
+
           <TabsTrigger
             value="history"
-            className="flex items-center justify-center gap-2 rounded-lg text-sm font-semibold py-2 transition-all data-active:bg-[#1f5844] data-active:text-white data-active:shadow-sm text-[#6e8076]"
+            className={cn(
+              "profile-tab-pill",
+              activeTab === 'history' ? "profile-tab-active" : "profile-tab-inactive"
+            )}
           >
-            <Calendar size={16} />
-            <span>Historial</span>
+            <div
+              className={cn(
+                "profile-tab-icon-wrap",
+                activeTab === 'history' ? "bg-white/20 text-white" : "bg-[#eef4ef] text-[#1f5844]"
+              )}
+            >
+              <Calendar size={15} strokeWidth={activeTab === 'history' ? 2.5 : 2} />
+            </div>
+            <span className="tracking-tight text-sm">Historial</span>
           </TabsTrigger>
         </TabsList>
 
@@ -137,98 +243,119 @@ export function ProfileScreen({
         {/* ============================================================ */}
         <TabsContent value="info" className="flex flex-col gap-4 outline-none">
           {/* Tarjeta de Presentación y Avatar */}
-          <Card className="border border-[#dbe4dc] bg-white rounded-2xl shadow-none overflow-hidden">
-            <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="relative mb-3">
-                <Avatar className="size-24 border-2 border-[#1f5844]/20 shadow-sm">
+          <Card className="profile-surface-card overflow-hidden">
+            <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+              <div className="relative">
+                <Avatar className="size-20 border-2 border-[#1f5844]/20 shadow-xs">
                   <AvatarImage
                     src={MOCK_USER_PROFILE.avatarUrl}
-                    alt={MOCK_USER_PROFILE.name}
+                    alt={displayName}
                   />
                   <AvatarFallback className="bg-[#eef4ef] text-[#1f5844] text-xl font-bold">
-                    <User size={36} />
+                    <User size={32} />
                   </AvatarFallback>
                 </Avatar>
                 <span
-                  className="absolute bottom-0 right-0 size-6 rounded-full bg-[#1f5844] border-2 border-white flex items-center justify-center text-white"
+                  className="profile-avatar-status-badge"
                   title="Usuario activo"
                 >
-                  <CheckCircle2 size={13} />
+                  <CheckCircle2 size={12} />
                 </span>
               </div>
-              <h2 className="text-xl font-extrabold text-[#14201a] tracking-tight">
-                {MOCK_USER_PROFILE.name}
-              </h2>
-              <p className="text-xs font-semibold text-[#6e8076] mt-0.5">
-                {MOCK_USER_PROFILE.username}
-              </p>
 
-              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#eef4ef] text-[#1f5844] text-xs font-semibold">
-                <Sparkles size={13} />
-                <span>Atleta Activo</span>
+              <div>
+                <h2 className="profile-user-name">
+                  {displayName}
+                </h2>
               </div>
+
+              <div className="profile-role-chip">
+                {isAdmin ? (
+                  <>
+                    <Shield size={13} className="text-[#1f5844]" />
+                    <span>Administrador</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={13} />
+                    <span>Usuario</span>
+                  </>
+                )}
+              </div>
+
+              {/* Botón para editar perfil */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditModalOpen(true)}
+                className="profile-edit-trigger-btn"
+              >
+                <Pencil size={15} />
+                <span>Editar Datos</span>
+              </Button>
+
+              {!cooldownStatus.canUpdate && (
+                <p className="profile-cooldown-text">
+                  <Clock size={11} />
+                  <span>Actualizado hoy (1 cambio permitido cada 24 horas)</span>
+                </p>
+              )}
             </CardContent>
           </Card>
 
-          {/* Tarjeta de Datos Básicos */}
-          <Card className="border border-[#dbe4dc] bg-white rounded-2xl shadow-none">
+          {/* Tarjeta de Datos Personales Detallados */}
+          <Card className="profile-surface-card">
             <CardHeader className="p-5 pb-2">
-              <CardTitle className="text-base font-bold text-[#14201a] flex items-center gap-2">
+              <CardTitle className="profile-card-title">
                 <ShieldCheck size={18} className="text-[#1f5844]" />
-                <span>Datos Básicos</span>
+                <span>Datos del Perfil</span>
               </CardTitle>
-              <CardDescription className="text-xs text-[#6e8076]">
-                Información personal del perfil del usuario
-              </CardDescription>
             </CardHeader>
 
-            <CardContent className="p-5 pt-2 flex flex-col divide-y divide-[#dbe4dc]/60">
-              {/* Campo Nombre */}
-              <div className="py-3 first:pt-1 flex items-center justify-between">
+            <CardContent className="profile-info-list">
+              <div className="profile-info-row">
                 <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-[#eef4ef] flex items-center justify-center text-[#1f5844] shrink-0">
+                  <div className="profile-info-icon-badge">
                     <User size={18} />
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-[#6e8076] uppercase tracking-wider block">
+                    <span className="profile-info-key">
                       Nombre
                     </span>
-                    <span className="text-sm font-semibold text-[#14201a]">
-                      {MOCK_USER_PROFILE.name}
+                    <span className="profile-info-val">
+                      {displayName}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Campo Email */}
-              <div className="py-3 flex items-center justify-between">
+              <div className="profile-info-row">
                 <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-[#eef4ef] flex items-center justify-center text-[#1f5844] shrink-0">
+                  <div className="profile-info-icon-badge">
                     <Mail size={18} />
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-[#6e8076] uppercase tracking-wider block">
-                      Email
+                    <span className="profile-info-key">
+                      Correo electrónico
                     </span>
-                    <span className="text-sm font-semibold text-[#14201a] break-all">
-                      {MOCK_USER_PROFILE.email}
+                    <span className="profile-info-val break-all">
+                      {displayEmail}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Campo Fecha de Nacimiento */}
-              <div className="py-3 last:pb-1 flex items-center justify-between">
+              <div className="profile-info-row">
                 <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-[#eef4ef] flex items-center justify-center text-[#1f5844] shrink-0">
+                  <div className="profile-info-icon-badge">
                     <Calendar size={18} />
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-[#6e8076] uppercase tracking-wider block">
+                    <span className="profile-info-key">
                       Fecha de nacimiento
                     </span>
-                    <span className="text-sm font-semibold text-[#14201a]">
-                      {MOCK_USER_PROFILE.birthDate}
+                    <span className="profile-info-val">
+                      {formatDateDisplay(displayBirthDate)}
                     </span>
                   </div>
                 </div>
@@ -236,35 +363,28 @@ export function ProfileScreen({
             </CardContent>
           </Card>
 
-          {/* Tarjeta de Resumen Rápido de Actividad */}
-          <Card className="border border-[#dbe4dc] bg-white rounded-2xl shadow-none">
-            <CardContent className="p-5 flex items-center justify-around text-center">
-              <div>
-                <span className="text-2xl font-black text-[#1f5844] block">
-                  {totalWorkouts}
-                </span>
-                <span className="text-xs font-semibold text-[#6e8076]">
-                  Entrenamientos
-                </span>
-              </div>
-              <div className="h-8 w-px bg-[#dbe4dc]" />
-              <div>
-                <span className="text-2xl font-black text-[#1f5844] block">
-                  {totalExercisesCompleted}
-                </span>
-                <span className="text-xs font-semibold text-[#6e8076]">
-                  Ejercicios
-                </span>
-              </div>
+          {/* Tarjeta de Gestión de Sesión */}
+          <Card className="profile-surface-card">
+            <CardContent className="p-4 flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  await signOut()
+                }}
+                className="auth-danger-btn"
+              >
+                <LogOut size={16} />
+                <span>Cerrar Sesión</span>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* ============================================================ */}
-        {/* SOLAPA 2: HISTORIAL (Contenido y Lógica completa)            */}
+        {/* SOLAPA 2: HISTORIAL                                          */}
         {/* ============================================================ */}
         <TabsContent value="history" className="flex flex-col gap-4 outline-none">
-          {/* Tarjetas KPI de Resumen */}
           <section className="history-kpis-grid" aria-label="Resumen de actividad">
             <div className="kpi-card">
               <div className="kpi-icon-wrap kpi-green">
@@ -287,7 +407,6 @@ export function ProfileScreen({
             </div>
           </section>
 
-          {/* Mapa de Calor Trimestral */}
           <ActivityHeatmap
             selectedDateKey={selectedDateKey}
             onSelectDate={(dateKey) => setSelectedDateKey(dateKey)}
@@ -299,7 +418,6 @@ export function ProfileScreen({
             }}
           />
 
-          {/* Lista de entrenamientos del trimestre */}
           <section
             className="history-logs-section"
             aria-label="Entrenamientos realizados en el trimestre"
@@ -353,9 +471,20 @@ export function ProfileScreen({
         </TabsContent>
       </Tabs>
 
-      {/* ============================================================ */}
-      {/* MODALES DEL HISTORIAL                                        */}
-      {/* ============================================================ */}
+      {/* Modal de Edición de Perfil con Restricción de 24 horas */}
+      {user && (
+        <EditProfileModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          currentName={displayName}
+          currentBirthDate={displayBirthDate}
+          lastProfileUpdate={lastProfileUpdate}
+          userId={user.id}
+          onProfileUpdated={async () => {
+            await refreshProfile()
+          }}
+        />
+      )}
 
       {/* Diálogo de Confirmación para Eliminar Registro */}
       {logToDelete && (
@@ -405,8 +534,8 @@ export function ProfileScreen({
                 <button
                   type="button"
                   className="confirm-danger-btn"
-                  onClick={() => {
-                    deleteWorkoutLog(logToDelete.id)
+                  onClick={async () => {
+                    await deleteWorkoutLog(logToDelete.id)
                     setLogToDelete(null)
                   }}
                 >

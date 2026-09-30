@@ -57,23 +57,26 @@ exercise-log/
 
 ## 💻 Convenciones de Código y Buenas Prácticas
 
-### 1. TypeScript y Tipado
+### TypeScript y Tipado
 - Utilizar tipos e interfaces explícitos para todas las entidades (`Exercise`, `Routine`, `WorkoutLog`, `SetEntry`).
 - Prohibido el uso de `any`; recurrir a tipos genéricos o `unknown` con type guards si la estructura no está garantizada.
 - Co-ubicar las interfaces de componentes dentro del mismo archivo o en archivos `.types.ts` si se comparten entre módulos.
 
-### 2. Manejo de Estado
-- La lógica de negocio y persistencia (como `localStorage`) debe residir exclusivamente en los contextos (`HistoryContext`, `RoutinesContext`) o en hooks especializados.
-- Mantener las funciones auxiliares de cálculo y mutación inmutable dentro de archivos helper (`historyHelpers.ts`) para facilitar el testing unitario con funciones puras.
-
-### 3. Componentes y UI
+### Componentes y UI
 - Priorizar componentes funcionales limpios con Server Components por defecto en Next.js, añadiendo `'use client'` únicamente donde haya interactividad, hooks o acceso al DOM.
 - Los modales deben implementar cierre con tecla `Escape`, accesibilidad ARIA adecuada y bloqueo de scroll cuando estén abiertos.
 - Diseño enfocado en dispositivos móviles (mobile-first), utilizando `BottomTabs` para la navegación táctil y adaptando gradualmente la visualización para pantallas más grandes mediante clases responsivas de Tailwind.
 
-### 4. Estilos
+### Estilos
 - Usar clases utilitarias de Tailwind CSS.
 - Centralizar clases condicionales mediante la función utilitaria `cn(...)` ubicada en `src/lib/utils.ts`.
+
+## Buenas Prácticas de la Industria:
+
+   - Mantén el código limpio, modular y fácil de leer.
+   - Aplica un manejo de errores robusto (try/catch donde corresponda).
+   - Asegura un tipado estricto y correcto en TypeScript.
+   - Continúa respetando el enfoque mobile-first y el uso coherente de los componentes de `components/ui`.
 
 ---
 

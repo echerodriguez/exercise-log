@@ -124,11 +124,11 @@ export function EditWorkoutLogModal({ log, isOpen, onClose }: EditWorkoutLogModa
     )
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!log || !dateKey || exercises.length === 0) return
 
-    updateWorkoutLog(log.id, {
+    await updateWorkoutLog(log.id, {
       routineName: log.routineName,
       dateKey,
       exercisesSnapshot: exercises,

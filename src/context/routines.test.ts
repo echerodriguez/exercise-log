@@ -1,6 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import type { Routine, RoutineExercise, ExerciseSet } from './RoutinesContext.ts'
+import {
+  normalizeExerciseSets,
+  uncheckRoutineSets,
+  type ExerciseSet,
+} from './routinesHelpers.ts'
+import type { Routine, RoutineExercise } from './RoutinesContext.tsx'
 
 test('routine stores exercises with dynamic sets collection and completed status', () => {
   const routine: Routine = {
@@ -143,3 +148,56 @@ test('toggleSetCompleted toggles completed status of a specific set', () => {
   toggle(exercise, 's1')
   assert.equal(exercise.sets[0].completed, false)
 })
+
+test('normalizeExerciseSets normalizes raw sets array, count and null fallback', () => {
+  const result1 = normalizeExerciseSets([{ id: '1', setNumber: 1, reps: 15, completed: true }])
+  assert.equal(result1.length, 1)
+  assert.equal(result1[0].reps, 15)
+  assert.equal(result1[0].completed, true)
+
+  const result2 = normalizeExerciseSets(3, 12)
+  assert.equal(result2.length, 3)
+  assert.equal(result2[0].reps, 12)
+  assert.equal(result2[2].setNumber, 3)
+
+  const result3 = normalizeExerciseSets(null)
+  assert.equal(result3.length, 1)
+  assert.equal(result3[0].reps, 10)
+  assert.equal(result3[0].completed, false)
+})
+
+test('uncheckRoutineSets unchecks all completed sets across all routine exercises', () => {
+  const routine: Routine = {
+    id: 'r-test',
+    name: 'Rutina Completa',
+    exercises: [
+      {
+        id: 'e1',
+        name: 'Sentadillas',
+        gifUrl: '',
+        body_part: 'legs',
+        sets: [
+          { id: 's1', setNumber: 1, reps: 10, completed: true },
+          { id: 's2', setNumber: 2, reps: 10, completed: true },
+        ],
+      },
+      {
+        id: 'e2',
+        name: 'Press Militar',
+        gifUrl: '',
+        body_part: 'shoulders',
+        sets: [
+          { id: 's3', setNumber: 1, reps: 12, completed: true },
+          { id: 's4', setNumber: 2, reps: 12, completed: false },
+        ],
+      },
+    ],
+  }
+
+  const resetRoutine = uncheckRoutineSets(routine)
+  assert.equal(resetRoutine.exercises[0].sets[0].completed, false)
+  assert.equal(resetRoutine.exercises[0].sets[1].completed, false)
+  assert.equal(resetRoutine.exercises[1].sets[0].completed, false)
+  assert.equal(resetRoutine.exercises[1].sets[1].completed, false)
+})
+

@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react'
 import { Check, FolderPlus, ImageOff, Plus, X } from 'lucide-react'
+import { AuthRequiredModal } from './AuthRequiredModal'
+import { useAuth } from '../hooks/useAuth'
 import { useRoutines } from '../context/RoutinesContext'
 import type { Exercise } from '../services/exercises'
 
@@ -13,11 +15,21 @@ interface AddToRoutineModalProps {
 
 export function AddToRoutineModal({ exercise, isOpen, onClose }: AddToRoutineModalProps) {
   const { routines, createRoutine, addExerciseToRoutine } = useRoutines()
+  const { isAuthenticated } = useAuth()
   const [newRoutineName, setNewRoutineName] = useState('')
   const [isCreatingNew, setIsCreatingNew] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
-  const handleSelectRoutine = (routineId: string) => {
-    addExerciseToRoutine(routineId, {
+  const handleStartCreating = () => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true)
+    } else {
+      setIsCreatingNew(true)
+    }
+  }
+
+  const handleSelectRoutine = async (routineId: string) => {
+    await addExerciseToRoutine(routineId, {
       id: exercise.id,
       name: exercise.name,
       gifUrl: exercise.gifUrl,
@@ -29,11 +41,11 @@ export function AddToRoutineModal({ exercise, isOpen, onClose }: AddToRoutineMod
     onClose()
   }
 
-  const handleCreateAndAdd = (e: React.FormEvent) => {
+  const handleCreateAndAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newRoutineName.trim()) return
-    const created = createRoutine(newRoutineName.trim())
-    addExerciseToRoutine(created.id, {
+    const created = await createRoutine(newRoutineName.trim())
+    await addExerciseToRoutine(created.id, {
       id: exercise.id,
       name: exercise.name,
       gifUrl: exercise.gifUrl,
@@ -47,19 +59,18 @@ export function AddToRoutineModal({ exercise, isOpen, onClose }: AddToRoutineMod
     onClose()
   }
 
-  let content: React.ReactNode = null
+  if (!isOpen) return null
 
-  if (isOpen) {
-    content = (
-      <div
-        className="modal-backdrop modal-backdrop-top"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose()
-        }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="add-to-routine-title"
-      >
+  return (
+    <div
+      className="modal-backdrop modal-backdrop-top"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-to-routine-title"
+    >
         <div className="routine-modal-card add-to-routine-card">
           <header className="routine-modal-header">
             <div>
@@ -122,7 +133,7 @@ export function AddToRoutineModal({ exercise, isOpen, onClose }: AddToRoutineMod
                   type="button"
                   className="routine-btn-primary"
                   style={{ marginTop: '12px', width: '100%' }}
-                  onClick={() => setIsCreatingNew(true)}
+                  onClick={handleStartCreating}
                 >
                   <Plus size={16} />
                   <span>Crear mi primera rutina</span>
@@ -213,7 +224,7 @@ export function AddToRoutineModal({ exercise, isOpen, onClose }: AddToRoutineMod
                 <button
                   type="button"
                   className="btn-create-routine-inline"
-                  onClick={() => setIsCreatingNew(true)}
+                  onClick={handleStartCreating}
                   aria-label="Crear nueva rutina"
                 >
                   <Plus size={15} />
@@ -223,9 +234,13 @@ export function AddToRoutineModal({ exercise, isOpen, onClose }: AddToRoutineMod
             )}
           </div>
         </div>
-      </div>
-    )
-  }
 
-  return content
+        <AuthRequiredModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          title="Inicia sesión para crear rutinas"
+          description="Para crear una nueva rutina y agregarle ejercicios necesitas tener una cuenta en Exercise Log."
+        />
+      </div>
+  )
 }

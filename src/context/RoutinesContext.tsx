@@ -1,14 +1,21 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import type { ExerciseInstructionSteps, ExerciseInstructions } from '../services/exercises'
+import { getCurrentUserId, supabase } from '../../lib/supabase'
+import {
+  fetchExercises,
+  type ExerciseInstructionSteps,
+  type ExerciseInstructions,
+} from '../services/exercises'
+import {
+  generateUUID,
+  normalizeExerciseSets,
+  uncheckRoutineSets,
+  type ExerciseSet,
+} from './routinesHelpers.ts'
 
-export interface ExerciseSet {
-  id: string
-  setNumber: number
-  reps: number
-  completed: boolean
-}
+export type { ExerciseSet }
+export { generateUUID, normalizeExerciseSets, uncheckRoutineSets }
 
 export interface RoutineExercise {
   id: string
@@ -45,121 +52,26 @@ export interface AddExerciseResult {
 
 export interface RoutinesContextType {
   routines: Routine[]
-  createRoutine: (name: string) => Routine
-  deleteRoutine: (id: string) => void
-  addExerciseToRoutine: (routineId: string, exercise: NewRoutineExercise) => AddExerciseResult
-  removeExerciseFromRoutine: (routineId: string, exerciseId: string) => void
-  addSetToExercise: (routineId: string, exerciseId: string) => void
-  removeSetFromExercise: (routineId: string, exerciseId: string, setId: string) => void
-  updateSetReps: (routineId: string, exerciseId: string, setId: string, reps: number) => void
-  toggleSetCompleted: (routineId: string, exerciseId: string, setId: string) => void
+  isLoading: boolean
+  createRoutine: (name: string) => Promise<Routine>
+  deleteRoutine: (id: string) => Promise<void>
+  addExerciseToRoutine: (routineId: string, exercise: NewRoutineExercise) => Promise<AddExerciseResult>
+  removeExerciseFromRoutine: (routineId: string, exerciseId: string) => Promise<void>
+  addSetToExercise: (routineId: string, exerciseId: string) => Promise<void>
+  removeSetFromExercise: (routineId: string, exerciseId: string, setId: string) => Promise<void>
+  updateSetReps: (routineId: string, exerciseId: string, setId: string, reps: number) => Promise<void>
+  toggleSetCompleted: (routineId: string, exerciseId: string, setId: string) => Promise<void>
+  resetRoutineCompletedSets: (routineId: string) => void
   toastMessage: string | null
   showToast: (message: string) => void
-}
-
-const STORAGE_KEY = 'exercise_browser_routines_v1'
-
-function generateUUID(): string {
-  let id = ''
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    id = crypto.randomUUID()
-  } else {
-    id = `id_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-  }
-  return id
-}
-
-function normalizeExerciseSets(rawSets: unknown, legacyReps?: unknown): ExerciseSet[] {
-  let normalized: ExerciseSet[] = []
-
-  if (Array.isArray(rawSets) && rawSets.length > 0) {
-    normalized = rawSets.map((s, index) => ({
-      id: s.id ? String(s.id) : generateUUID(),
-      setNumber: typeof s.setNumber === 'number' ? s.setNumber : index + 1,
-      reps: typeof s.reps === 'number' && !isNaN(s.reps) && s.reps > 0 ? s.reps : 10,
-      completed: Boolean(s.completed),
-    }))
-  } else if (typeof rawSets === 'number' && rawSets > 0) {
-    const defaultReps =
-      typeof legacyReps === 'number' && !isNaN(legacyReps) && legacyReps > 0 ? legacyReps : 10
-    normalized = Array.from({ length: rawSets }, (_, i) => ({
-      id: generateUUID(),
-      setNumber: i + 1,
-      reps: defaultReps,
-      completed: false,
-    }))
-  } else {
-    normalized = [
-      {
-        id: generateUUID(),
-        setNumber: 1,
-        reps: 10,
-        completed: false,
-      },
-    ]
-  }
-
-  return normalized
 }
 
 const RoutinesContext = createContext<RoutinesContextType | undefined>(undefined)
 
 export function RoutinesProvider({ children }: { children: React.ReactNode }) {
   const [routines, setRoutines] = useState<Routine[]>([])
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
-
-  useEffect(() => {
-    let savedRoutines: Routine[] = []
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored) as Array<{
-          id: string
-          name: string
-          exercises?: Array<{
-            id: string
-            name: string
-            gifUrl: string
-            body_part: string
-            category?: string
-            instruction_steps?: ExerciseInstructionSteps
-            instructions?: ExerciseInstructions | string
-            sets?: unknown
-            reps?: unknown
-          }>
-        }>
-        savedRoutines = parsed.map((routine) => ({
-          id: routine.id,
-          name: routine.name,
-          exercises: (routine.exercises || []).map((ex) => ({
-            id: ex.id,
-            name: ex.name,
-            gifUrl: ex.gifUrl,
-            body_part: ex.body_part,
-            category: ex.category,
-            instruction_steps: ex.instruction_steps,
-            instructions: ex.instructions,
-            sets: normalizeExerciseSets(ex.sets, ex.reps),
-          })),
-        }))
-      }
-    } catch {
-      savedRoutines = []
-    }
-    setRoutines(savedRoutines)
-    setIsLoaded(true)
-  }, [])
-
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(routines))
-      } catch {
-        // Silently catch quota or privacy errors
-      }
-    }
-  }, [routines, isLoaded])
 
   const showToast = (message: string) => {
     setToastMessage(message)
@@ -168,236 +80,428 @@ export function RoutinesProvider({ children }: { children: React.ReactNode }) {
     }, 2800)
   }
 
-  const createRoutine = (name: string): Routine => {
+  const fetchRoutines = async (): Promise<Routine[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('routines')
+        .select(`
+          id,
+          nombre,
+          creada_en,
+          routine_exercises (
+            id,
+            routine_id,
+            exercise_id,
+            orden,
+            series_objetivo,
+            reps_objetivo,
+            exercises (
+              id,
+              nombre,
+              grupo_muscular,
+              descripcion
+            )
+          )
+        `)
+        .order('creada_en', { ascending: false })
+
+      if (error || !Array.isArray(data)) {
+        setRoutines([])
+        setIsLoading(false)
+        return []
+      }
+
+      let catalogMap = new Map<string, string>()
+      try {
+        const catalog = await fetchExercises()
+        catalog.forEach((c) => {
+          if (c.id) catalogMap.set(c.id.toLowerCase().trim(), c.gifUrl)
+          if (c.name) catalogMap.set(c.name.toLowerCase().trim(), c.gifUrl)
+        })
+      } catch {
+        // Fallback si no hay conexión al dataset
+      }
+
+      type RoutineExerciseRow = {
+        id: string
+        routine_id: string
+        exercise_id: string
+        orden: number
+        series_objetivo: number
+        reps_objetivo: number
+        exercises: {
+          id: string
+          nombre: string
+          grupo_muscular: string
+          descripcion: string | null
+        } | null
+      }
+
+      const mappedRoutines: Routine[] = data.map((item) => {
+        const rawExercises = Array.isArray(item.routine_exercises)
+          ? (item.routine_exercises as unknown as RoutineExerciseRow[]).sort(
+              (a, b) => (a.orden || 0) - (b.orden || 0)
+            )
+          : []
+
+        const exercises: RoutineExercise[] = rawExercises.map((re) => {
+          const exerciseDetails = re.exercises
+          const sets: ExerciseSet[] = Array.from(
+            { length: re.series_objetivo || 3 },
+            (_, idx) => ({
+              id: `${re.id || re.exercise_id}_set_${idx + 1}`,
+              setNumber: idx + 1,
+              reps: re.reps_objetivo || 10,
+              completed: false,
+            })
+          )
+
+          const exId = (re.exercise_id || '').toLowerCase().trim()
+          const exName = (exerciseDetails?.nombre || '').toLowerCase().trim()
+          const resolvedGif = catalogMap.get(exId) || catalogMap.get(exName) || ''
+
+          return {
+            id: re.exercise_id || generateUUID(),
+            name: exerciseDetails?.nombre || 'Ejercicio',
+            gifUrl: resolvedGif,
+            body_part: exerciseDetails?.grupo_muscular || 'General',
+            instructions: exerciseDetails?.descripcion || undefined,
+            sets,
+          }
+        })
+
+        return {
+          id: item.id,
+          name: item.nombre,
+          exercises,
+        }
+      })
+
+      setRoutines(mappedRoutines)
+      setIsLoading(false)
+      return mappedRoutines
+    } catch {
+      setRoutines([])
+      setIsLoading(false)
+      return []
+    }
+  }
+
+  useEffect(() => {
+    fetchRoutines()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+      fetchRoutines()
+    })
+
+    return () => {
+      authListener?.subscription.unsubscribe()
+    }
+  }, [])
+
+  const createRoutine = async (name: string): Promise<Routine> => {
     const trimmed = name.trim() || 'Nueva Rutina'
-    const newRoutine: Routine = {
-      id: `routine_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    let newRoutine: Routine = {
+      id: generateUUID(),
       name: trimmed,
       exercises: [],
     }
+
+    try {
+      const userId = await getCurrentUserId()
+      if (userId) {
+        const { data, error } = await supabase
+          .from('routines')
+          .insert({
+            nombre: trimmed,
+            user_id: userId,
+          })
+          .select()
+          .single()
+
+        if (!error && data) {
+          newRoutine = {
+            id: data.id,
+            name: data.nombre,
+            exercises: [],
+          }
+        }
+      }
+    } catch {
+      // Fallback local
+    }
+
     setRoutines((prev) => [newRoutine, ...prev])
-    showToast(`Rutina "${trimmed}" creada`)
+    showToast(`Rutina "${newRoutine.name}" creada`)
     return newRoutine
   }
 
-  const deleteRoutine = (id: string) => {
+  const deleteRoutine = async (id: string): Promise<void> => {
+    try {
+      await supabase.from('routines').delete().eq('id', id)
+    } catch {
+      // Backend error handling
+    }
+
     setRoutines((prev) => prev.filter((r) => r.id !== id))
     showToast('Rutina eliminada')
   }
 
-  const addExerciseToRoutine = (
+  const addExerciseToRoutine = async (
     routineId: string,
     exercise: NewRoutineExercise
-  ): AddExerciseResult => {
-    let result: AddExerciseResult = { success: false, message: 'Rutina no encontrada' }
+  ): Promise<AddExerciseResult> => {
+    const targetRoutine = routines.find((r) => r.id === routineId)
+    if (!targetRoutine) {
+      return { success: false, message: 'Rutina no encontrada' }
+    }
 
-    setRoutines((prev) => {
-      const routineIndex = prev.findIndex((r) => r.id === routineId)
-      let nextRoutines = prev
+    const alreadyExists = targetRoutine.exercises.some(
+      (item) => item.id === exercise.id || (item.name && item.name === exercise.name)
+    )
 
-      if (routineIndex !== -1) {
-        const targetRoutine = prev[routineIndex]
-        const alreadyExists = targetRoutine.exercises.some(
-          (item) => item.id === exercise.id || (item.name && item.name === exercise.name)
-        )
+    if (alreadyExists) {
+      return {
+        success: false,
+        message: `"${exercise.name}" ya está en "${targetRoutine.name}"`,
+      }
+    }
 
-        if (alreadyExists) {
-          result = {
-            success: false,
-            message: `"${exercise.name}" ya está en "${targetRoutine.name}"`,
-          }
-        } else {
-          const initialSets: ExerciseSet[] =
-            exercise.sets && exercise.sets.length > 0
-              ? exercise.sets
-              : [
-                  {
-                    id: generateUUID(),
-                    setNumber: 1,
-                    reps: 10,
-                    completed: false,
-                  },
-                ]
-
-          const exerciseWithSets: RoutineExercise = {
-            id: exercise.id,
-            name: exercise.name,
-            gifUrl: exercise.gifUrl,
-            body_part: exercise.body_part,
-            category: exercise.category,
-            instruction_steps: exercise.instruction_steps,
-            instructions: exercise.instructions,
-            sets: initialSets,
-          }
-
-          const updatedRoutine: Routine = {
-            ...targetRoutine,
-            exercises: [...targetRoutine.exercises, exerciseWithSets],
-          }
-
-          nextRoutines = [
-            ...prev.slice(0, routineIndex),
-            updatedRoutine,
-            ...prev.slice(routineIndex + 1),
+    const initialSets: ExerciseSet[] =
+      exercise.sets && exercise.sets.length > 0
+        ? exercise.sets
+        : [
+            {
+              id: generateUUID(),
+              setNumber: 1,
+              reps: 10,
+              completed: false,
+            },
           ]
 
-          result = {
-            success: true,
-            message: `"${exercise.name}" agregado a "${targetRoutine.name}"`,
-          }
-        }
-      }
-      return nextRoutines
-    })
+    const exerciseWithSets: RoutineExercise = {
+      id: exercise.id,
+      name: exercise.name,
+      gifUrl: exercise.gifUrl,
+      body_part: exercise.body_part,
+      category: exercise.category,
+      instruction_steps: exercise.instruction_steps,
+      instructions: exercise.instructions,
+      sets: initialSets,
+    }
 
-    return result
-  }
+    try {
+      await supabase.from('exercises').upsert(
+        {
+          id: exercise.id,
+          nombre: exercise.name,
+          grupo_muscular: exercise.body_part || 'General',
+          descripcion:
+            typeof exercise.instructions === 'string'
+              ? exercise.instructions
+              : null,
+        },
+        { onConflict: 'id' }
+      )
 
-  const removeExerciseFromRoutine = (routineId: string, exerciseId: string) => {
+      await supabase.from('routine_exercises').insert({
+        routine_id: routineId,
+        exercise_id: exercise.id,
+        orden: targetRoutine.exercises.length + 1,
+        series_objetivo: initialSets.length,
+        reps_objetivo: initialSets[0]?.reps || 10,
+      })
+    } catch {
+      // Backend sync catch
+    }
+
     setRoutines((prev) =>
       prev.map((routine) => {
-        let updated = routine
-        if (routine.id === routineId) {
-          updated = {
-            ...routine,
-            exercises: routine.exercises.filter((ex) => ex.id !== exerciseId),
-          }
+        if (routine.id !== routineId) return routine
+        return {
+          ...routine,
+          exercises: [...routine.exercises, exerciseWithSets],
         }
-        return updated
+      })
+    )
+
+    return {
+      success: true,
+      message: `"${exercise.name}" agregado a "${targetRoutine.name}"`,
+    }
+  }
+
+  const removeExerciseFromRoutine = async (
+    routineId: string,
+    exerciseId: string
+  ): Promise<void> => {
+    try {
+      await supabase
+        .from('routine_exercises')
+        .delete()
+        .eq('routine_id', routineId)
+        .eq('exercise_id', exerciseId)
+    } catch {
+      // Backend sync
+    }
+
+    setRoutines((prev) =>
+      prev.map((routine) => {
+        if (routine.id !== routineId) return routine
+        return {
+          ...routine,
+          exercises: routine.exercises.filter((ex) => ex.id !== exerciseId),
+        }
       })
     )
     showToast('Ejercicio eliminado de la rutina')
   }
 
-  const addSetToExercise = (routineId: string, exerciseId: string) => {
+  const addSetToExercise = async (routineId: string, exerciseId: string): Promise<void> => {
+    let nextCount = 1
+    let nextReps = 10
+
     setRoutines((prev) =>
       prev.map((routine) => {
-        let updatedRoutine = routine
-        if (routine.id === routineId) {
-          updatedRoutine = {
-            ...routine,
-            exercises: routine.exercises.map((ex) => {
-              let updatedEx = ex
-              if (ex.id === exerciseId) {
-                const nextNumber = ex.sets.length + 1
-                const lastSetReps =
-                  ex.sets.length > 0 ? ex.sets[ex.sets.length - 1].reps : 10
-                const newSet: ExerciseSet = {
-                  id: generateUUID(),
-                  setNumber: nextNumber,
-                  reps: lastSetReps,
-                  completed: false,
-                }
-                updatedEx = {
-                  ...ex,
-                  sets: [...ex.sets, newSet],
-                }
-              }
-              return updatedEx
-            }),
-          }
+        if (routine.id !== routineId) return routine
+        return {
+          ...routine,
+          exercises: routine.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex
+            const nextNumber = ex.sets.length + 1
+            const lastSetReps = ex.sets.length > 0 ? ex.sets[ex.sets.length - 1].reps : 10
+            const newSet: ExerciseSet = {
+              id: generateUUID(),
+              setNumber: nextNumber,
+              reps: lastSetReps,
+              completed: false,
+            }
+            nextCount = nextNumber
+            nextReps = lastSetReps
+            return {
+              ...ex,
+              sets: [...ex.sets, newSet],
+            }
+          }),
         }
-        return updatedRoutine
       })
     )
+
+    try {
+      await supabase
+        .from('routine_exercises')
+        .update({ series_objetivo: nextCount, reps_objetivo: nextReps })
+        .eq('routine_id', routineId)
+        .eq('exercise_id', exerciseId)
+    } catch {
+      // Backend sync
+    }
   }
 
-  const removeSetFromExercise = (routineId: string, exerciseId: string, setId: string) => {
+  const removeSetFromExercise = async (
+    routineId: string,
+    exerciseId: string,
+    setId: string
+  ): Promise<void> => {
+    let nextCount = 1
+    let nextReps = 10
+
     setRoutines((prev) =>
       prev.map((routine) => {
-        let updatedRoutine = routine
-        if (routine.id === routineId) {
-          updatedRoutine = {
-            ...routine,
-            exercises: routine.exercises.map((ex) => {
-              let updatedEx = ex
-              if (ex.id === exerciseId && ex.sets.length > 1) {
-                const filtered = ex.sets.filter((s) => s.id !== setId)
-                const renumbered = filtered.map((s, index) => ({
-                  ...s,
-                  setNumber: index + 1,
-                }))
-                updatedEx = {
-                  ...ex,
-                  sets: renumbered,
-                }
-              }
-              return updatedEx
-            }),
-          }
+        if (routine.id !== routineId) return routine
+        return {
+          ...routine,
+          exercises: routine.exercises.map((ex) => {
+            if (ex.id !== exerciseId || ex.sets.length <= 1) return ex
+            const filtered = ex.sets.filter((s) => s.id !== setId)
+            const renumbered = filtered.map((s, index) => ({
+              ...s,
+              setNumber: index + 1,
+            }))
+            nextCount = renumbered.length
+            nextReps = renumbered[0]?.reps || 10
+            return {
+              ...ex,
+              sets: renumbered,
+            }
+          }),
         }
-        return updatedRoutine
       })
     )
+
+    try {
+      await supabase
+        .from('routine_exercises')
+        .update({ series_objetivo: nextCount, reps_objetivo: nextReps })
+        .eq('routine_id', routineId)
+        .eq('exercise_id', exerciseId)
+    } catch {
+      // Backend sync
+    }
   }
 
-  const updateSetReps = (
+  const updateSetReps = async (
     routineId: string,
     exerciseId: string,
     setId: string,
     reps: number
-  ) => {
+  ): Promise<void> => {
+    const safeReps = Math.max(1, reps)
+
     setRoutines((prev) =>
       prev.map((routine) => {
-        let updatedRoutine = routine
-        if (routine.id === routineId) {
-          updatedRoutine = {
-            ...routine,
-            exercises: routine.exercises.map((ex) => {
-              let updatedEx = ex
-              if (ex.id === exerciseId) {
-                updatedEx = {
-                  ...ex,
-                  sets: ex.sets.map((s) => {
-                    let updatedSet = s
-                    if (s.id === setId) {
-                      updatedSet = {
-                        ...s,
-                        reps: Math.max(1, reps),
-                      }
-                    }
-                    return updatedSet
-                  }),
-                }
-              }
-              return updatedEx
-            }),
-          }
+        if (routine.id !== routineId) return routine
+        return {
+          ...routine,
+          exercises: routine.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex
+            return {
+              ...ex,
+              sets: ex.sets.map((s) => (s.id === setId ? { ...s, reps: safeReps } : s)),
+            }
+          }),
         }
-        return updatedRoutine
+      })
+    )
+
+    try {
+      await supabase
+        .from('routine_exercises')
+        .update({ reps_objetivo: safeReps })
+        .eq('routine_id', routineId)
+        .eq('exercise_id', exerciseId)
+    } catch {
+      // Backend sync
+    }
+  }
+
+  const toggleSetCompleted = async (
+    routineId: string,
+    exerciseId: string,
+    setId: string
+  ): Promise<void> => {
+    setRoutines((prev) =>
+      prev.map((routine) => {
+        if (routine.id !== routineId) return routine
+        return {
+          ...routine,
+          exercises: routine.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex
+            return {
+              ...ex,
+              sets: ex.sets.map((s) => (s.id === setId ? { ...s, completed: !s.completed } : s)),
+            }
+          }),
+        }
       })
     )
   }
 
-  const toggleSetCompleted = (routineId: string, exerciseId: string, setId: string) => {
+  const resetRoutineCompletedSets = (routineId: string): void => {
     setRoutines((prev) =>
       prev.map((routine) => {
-        let updatedRoutine = routine
-        if (routine.id === routineId) {
-          updatedRoutine = {
-            ...routine,
-            exercises: routine.exercises.map((ex) => {
-              let updatedEx = ex
-              if (ex.id === exerciseId) {
-                updatedEx = {
-                  ...ex,
-                  sets: ex.sets.map((s) => {
-                    let updatedSet = s
-                    if (s.id === setId) {
-                      updatedSet = {
-                        ...s,
-                        completed: !s.completed,
-                      }
-                    }
-                    return updatedSet
-                  }),
-                }
-              }
-              return updatedEx
-            }),
-          }
-        }
-        return updatedRoutine
+        if (routine.id !== routineId) return routine
+        return uncheckRoutineSets(routine)
       })
     )
   }
@@ -406,6 +510,7 @@ export function RoutinesProvider({ children }: { children: React.ReactNode }) {
     <RoutinesContext.Provider
       value={{
         routines,
+        isLoading,
         createRoutine,
         deleteRoutine,
         addExerciseToRoutine,
@@ -414,6 +519,7 @@ export function RoutinesProvider({ children }: { children: React.ReactNode }) {
         removeSetFromExercise,
         updateSetReps,
         toggleSetCompleted,
+        resetRoutineCompletedSets,
         toastMessage,
         showToast,
       }}

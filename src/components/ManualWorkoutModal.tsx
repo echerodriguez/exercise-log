@@ -138,11 +138,11 @@ export function ManualWorkoutModal({
 
   const selectedRoutine = routines.find((r) => r.id === selectedRoutineId)
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedDateKey || !selectedRoutine || exercises.length === 0) return
 
-    addManualWorkoutLog({
+    await addManualWorkoutLog({
       routineId: selectedRoutine.id,
       routineName: selectedRoutine.name,
       dateKey: selectedDateKey,

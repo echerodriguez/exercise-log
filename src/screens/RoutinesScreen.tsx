@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react'
 import { Dumbbell, FolderHeart, Plus, Trash2, X } from 'lucide-react'
+import { AuthRequiredModal } from '../components/AuthRequiredModal'
 import { CreateRoutineModal } from '../components/CreateRoutineModal'
 import { RoutineDetailScreen } from './RoutineDetailScreen'
+import { useAuth } from '../hooks/useAuth'
 import { useRoutines, type Routine } from '../context/RoutinesContext'
 
 interface RoutinesScreenProps {
@@ -13,14 +15,22 @@ interface RoutinesScreenProps {
 
 export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenProps) {
   const { routines, createRoutine, deleteRoutine } = useRoutines()
+  const { isAuthenticated } = useAuth()
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [routineToDelete, setRoutineToDelete] = useState<Routine | null>(null)
 
-  let content: React.ReactNode = null
+  const handleOpenCreateRoutine = () => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true)
+    } else {
+      setIsCreateModalOpen(true)
+    }
+  }
 
   if (selectedRoutineId) {
-    content = (
+    return (
       <RoutineDetailScreen
         routineId={selectedRoutineId}
         onBack={() => setSelectedRoutineId(null)}
@@ -28,9 +38,10 @@ export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenPr
         onGoToHistory={onGoToHistory}
       />
     )
-  } else {
-    content = (
-      <main className="app-shell">
+  }
+
+  return (
+    <main className="app-shell">
         <header className="app-header">
           <div className="brand-mark">
             <FolderHeart size={22} strokeWidth={2.5} />
@@ -42,7 +53,7 @@ export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenPr
           <button
             type="button"
             className="create-routine-top-btn"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={handleOpenCreateRoutine}
             aria-label="Crear nueva rutina"
           >
             <Plus size={16} />
@@ -64,7 +75,7 @@ export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenPr
                 <button
                   type="button"
                   className="retry-button"
-                  onClick={() => setIsCreateModalOpen(true)}
+                  onClick={handleOpenCreateRoutine}
                 >
                   <Plus size={16} /> Crear mi primera rutina
                 </button>
@@ -102,7 +113,7 @@ export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenPr
                     <div className="routine-card-main">
                       <div className="routine-header-info">
                         <div className="routine-icon-badge">
-                          <FolderHeart size={18} />
+                          <Dumbbell size={22} />
                         </div>
                         <div className="routine-title-box">
                           <h2 className="routine-name">{routine.name}</h2>
@@ -141,10 +152,18 @@ export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenPr
         <CreateRoutineModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
-          onCreate={(name) => {
-            const created = createRoutine(name)
+          onCreate={async (name) => {
+            const created = await createRoutine(name)
             setSelectedRoutineId(created.id)
           }}
+        />
+
+        {/* Modal de Aviso de Autenticación Requerida */}
+        <AuthRequiredModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          title="Inicia sesión para crear rutinas"
+          description="Para poder crear y sincronizar tus rutinas en la nube necesitas ingresar a tu cuenta de Exercise Log."
         />
 
         {routineToDelete && (
@@ -193,8 +212,8 @@ export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenPr
                   <button
                     type="button"
                     className="confirm-danger-btn"
-                    onClick={() => {
-                      deleteRoutine(routineToDelete.id)
+                    onClick={async () => {
+                      await deleteRoutine(routineToDelete.id)
                       setRoutineToDelete(null)
                     }}
                   >
@@ -206,8 +225,5 @@ export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenPr
           </div>
         )}
       </main>
-    )
-  }
-
-  return content
+  )
 }
