@@ -1,10 +1,10 @@
 'use client'
 
 import React from 'react'
-import { Calendar, FolderHeart, Search } from 'lucide-react'
+import { FolderHeart, Search, User } from 'lucide-react'
 import { useRoutines } from '../context/RoutinesContext'
 
-export type TabType = 'search' | 'routines' | 'history'
+export type TabType = 'search' | 'routines' | 'history' | 'profile'
 
 interface BottomTabsProps {
   activeTab: TabType
@@ -14,6 +14,7 @@ interface BottomTabsProps {
 export function BottomTabs({ activeTab, onTabChange }: BottomTabsProps) {
   const { routines } = useRoutines()
   const routinesCount = routines.length
+  const isProfileActive = activeTab === 'profile' || activeTab === 'history'
 
   return (
     <nav className="bottom-tabs-nav" aria-label="Navegación principal">
@@ -45,13 +46,13 @@ export function BottomTabs({ activeTab, onTabChange }: BottomTabsProps) {
 
         <button
           type="button"
-          className={`bottom-tab-item ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => onTabChange('history')}
-          aria-selected={activeTab === 'history'}
+          className={`bottom-tab-item ${isProfileActive ? 'active' : ''}`}
+          onClick={() => onTabChange('profile')}
+          aria-selected={isProfileActive}
           role="tab"
         >
-          <Calendar size={20} />
-          <span>Historial</span>
+          <User size={20} />
+          <span>Perfil</span>
         </button>
       </div>
     </nav>

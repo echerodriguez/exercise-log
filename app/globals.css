@@ -14,6 +14,27 @@
   --lime-hover: #bded57;
   --white: #ffffff;
   --card-bg: #ffffff;
+
+  /* Tokens semánticos de Shadcn / UI */
+  --background: #f7faf7;
+  --foreground: #14201a;
+  --card: #ffffff;
+  --card-foreground: #14201a;
+  --popover: #ffffff;
+  --popover-foreground: #14201a;
+  --primary: #1f5844;
+  --primary-foreground: #ffffff;
+  --secondary: #eef4ef;
+  --secondary-foreground: #1f5844;
+  --muted-foreground: #6e8076;
+  --accent: #eef4ef;
+  --accent-foreground: #1f5844;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #dbe4dc;
+  --input: #dbe4dc;
+  --ring: #1f5844;
+  --radius: 0.75rem;
 }
 
 * {
@@ -1518,14 +1539,14 @@ footer {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 33px;
-  padding: 0 10px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f7faf7;
   color: var(--green);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   flex-shrink: 0;
   transition: transform .12s ease;
 }
@@ -1546,8 +1567,8 @@ footer {
   border-radius: 6px;
   background: #eef5ef;
   color: var(--green);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .exercise-progress-badge.all-done {
@@ -1557,12 +1578,12 @@ footer {
 
 .exercise-bodypart-badge {
   display: inline-block;
-  padding: 2px 7px;
+  padding: 2px 5px;
   border-radius: 6px;
   background: #f1f4f1;
   color: #617369;
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 9px;
+  font-weight: 600;
   text-transform: capitalize;
 }
 
@@ -1576,10 +1597,10 @@ footer {
 .exercise-toggle-btn {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
   border: 0;
   border-radius: 10px;
   background: transparent;

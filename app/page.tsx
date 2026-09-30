@@ -5,7 +5,7 @@ import { BottomTabs, type TabType } from '../src/components/BottomTabs'
 import { HistoryProvider } from '../src/context/HistoryContext'
 import { RoutinesProvider } from '../src/context/RoutinesContext'
 import { ExerciseSearchScreen } from '../src/screens/ExerciseSearchScreen'
-import { HistoryScreen } from '../src/screens/HistoryScreen'
+import { ProfileScreen } from '../src/screens/ProfileScreen'
 import { RoutinesScreen } from '../src/screens/RoutinesScreen'
 
 export default function Page() {
@@ -22,8 +22,11 @@ export default function Page() {
               onGoToHistory={() => setActiveTab('history')}
             />
           )}
-          {activeTab === 'history' && (
-            <HistoryScreen onGoToRoutines={() => setActiveTab('routines')} />
+          {(activeTab === 'profile' || activeTab === 'history') && (
+            <ProfileScreen
+              initialTab={activeTab === 'history' ? 'history' : 'info'}
+              onGoToRoutines={() => setActiveTab('routines')}
+            />
           )}
           <BottomTabs activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
