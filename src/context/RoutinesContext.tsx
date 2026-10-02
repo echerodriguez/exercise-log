@@ -60,6 +60,7 @@ export interface RoutinesContextType {
   addSetToExercise: (routineId: string, exerciseId: string) => Promise<void>
   removeSetFromExercise: (routineId: string, exerciseId: string, setId: string) => Promise<void>
   updateSetReps: (routineId: string, exerciseId: string, setId: string, reps: number) => Promise<void>
+  updateSetPeso: (routineId: string, exerciseId: string, setId: string, peso: number | null) => Promise<void>
   toggleSetCompleted: (routineId: string, exerciseId: string, setId: string) => Promise<void>
   resetRoutineCompletedSets: (routineId: string) => void
   toastMessage: string | null
@@ -475,6 +476,29 @@ export function RoutinesProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const updateSetPeso = async (
+    routineId: string,
+    exerciseId: string,
+    setId: string,
+    peso: number | null
+  ): Promise<void> => {
+    setRoutines((prev) =>
+      prev.map((routine) => {
+        if (routine.id !== routineId) return routine
+        return {
+          ...routine,
+          exercises: routine.exercises.map((ex) => {
+            if (ex.id !== exerciseId) return ex
+            return {
+              ...ex,
+              sets: ex.sets.map((s) => (s.id === setId ? { ...s, peso } : s)),
+            }
+          }),
+        }
+      })
+    )
+  }
+
   const toggleSetCompleted = async (
     routineId: string,
     exerciseId: string,
@@ -518,6 +542,7 @@ export function RoutinesProvider({ children }: { children: React.ReactNode }) {
         addSetToExercise,
         removeSetFromExercise,
         updateSetReps,
+        updateSetPeso,
         toggleSetCompleted,
         resetRoutineCompletedSets,
         toastMessage,

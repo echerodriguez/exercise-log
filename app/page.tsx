@@ -14,7 +14,7 @@ export default function Page() {
   return (
     <RoutinesProvider>
       <HistoryProvider>
-        <div className="app-viewport">
+        <div className="app-viewport pb-24">
           {activeTab === 'search' && <ExerciseSearchScreen />}
           {activeTab === 'routines' && (
             <RoutinesScreen

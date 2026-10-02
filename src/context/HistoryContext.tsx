@@ -7,6 +7,9 @@ import {
   calculateActivityLevel,
   formatDateKey,
   formatReadableDate,
+  formatSetDisplayText,
+  parseSetPeso,
+  sanitizeDecimalInput,
   type ExerciseSetSnapshot,
   type ExerciseSnapshot,
   type ManualWorkoutLogInput,
@@ -21,7 +24,14 @@ export type {
   UpdateWorkoutLogInput,
   WorkoutLog,
 }
-export { formatDateKey, formatReadableDate, calculateActivityLevel }
+export {
+  formatDateKey,
+  formatReadableDate,
+  calculateActivityLevel,
+  formatSetDisplayText,
+  parseSetPeso,
+  sanitizeDecimalInput,
+}
 
 export interface HistoryContextType {
   logs: WorkoutLog[]
@@ -87,7 +97,7 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
         workout_log_id: string
         exercise_id: string
         reps: number
-        peso: number
+        peso: number | string | null
         orden: number
         exercises: {
           id: string
@@ -112,9 +122,15 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
             exerciseMap.set(exId, { name: exName, sets: [] })
           }
 
+          const parsedPeso =
+            ws.peso !== null && ws.peso !== undefined && !isNaN(Number(ws.peso))
+              ? Number(ws.peso)
+              : null
+
           exerciseMap.get(exId)?.sets.push({
             setNumber: ws.orden || 1,
             reps: ws.reps || 10,
+            peso: parsedPeso,
             completed: true,
           })
         })
@@ -180,9 +196,10 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
         ? ex.sets.map((s) => ({
             setNumber: s.setNumber,
             reps: s.reps,
+            peso: s.peso !== undefined && s.peso !== null && !isNaN(Number(s.peso)) ? Number(s.peso) : null,
             completed: Boolean(s.completed),
           }))
-        : [{ setNumber: 1, reps: 10, completed: false }],
+        : [{ setNumber: 1, reps: 10, peso: null, completed: false }],
     }))
 
     const totalExercises = exercisesSnapshot.length
@@ -226,7 +243,7 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
             workout_log_id: string
             exercise_id: string
             reps: number
-            peso: number
+            peso: number | null
             orden: number
           }> = []
 
@@ -236,7 +253,9 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
                 workout_log_id: createdLogId,
                 exercise_id: ex.id,
                 reps: set.reps,
-                peso: 0,
+                peso: set.peso !== undefined && set.peso !== null && !isNaN(Number(set.peso))
+                  ? Number(set.peso)
+                  : null,
                 orden: set.setNumber,
               })
             })
@@ -313,7 +332,7 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
             workout_log_id: string
             exercise_id: string
             reps: number
-            peso: number
+            peso: number | null
             orden: number
           }> = []
 
@@ -324,7 +343,9 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
                 workout_log_id: createdLogId,
                 exercise_id: syntheticId,
                 reps: set.reps,
-                peso: 0,
+                peso: set.peso !== undefined && set.peso !== null && !isNaN(Number(set.peso))
+                  ? Number(set.peso)
+                  : null,
                 orden: set.setNumber,
               })
             })
@@ -375,6 +396,36 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
 
       if (Object.keys(updatePayload).length > 0) {
         await supabase.from('workout_logs').update(updatePayload).eq('id', logId)
+      }
+
+      if (updatedData.exercisesSnapshot) {
+        await supabase.from('workout_sets').delete().eq('workout_log_id', logId)
+        const setsPayload: Array<{
+          workout_log_id: string
+          exercise_id: string
+          reps: number
+          peso: number | null
+          orden: number
+        }> = []
+
+        updatedData.exercisesSnapshot.forEach((ex) => {
+          const syntheticId = `ex_${ex.name.toLowerCase().replace(/\s+/g, '_')}`
+          ex.sets.forEach((set) => {
+            setsPayload.push({
+              workout_log_id: logId,
+              exercise_id: syntheticId,
+              reps: set.reps,
+              peso: set.peso !== undefined && set.peso !== null && !isNaN(Number(set.peso))
+                ? Number(set.peso)
+                : null,
+              orden: set.setNumber,
+            })
+          })
+        })
+
+        if (setsPayload.length > 0) {
+          await supabase.from('workout_sets').insert(setsPayload)
+        }
       }
     } catch {
       // Backend error handling

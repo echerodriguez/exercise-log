@@ -41,7 +41,7 @@ export function RoutinesScreen({ onGoToSearch, onGoToHistory }: RoutinesScreenPr
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell pb-24">
         <header className="app-header">
           <div className="brand-mark">
             <FolderHeart size={22} strokeWidth={2.5} />

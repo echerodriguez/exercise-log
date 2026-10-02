@@ -3,6 +3,10 @@ import assert from 'node:assert/strict'
 import {
   calculateActivityLevel,
   formatDateKey,
+  formatSetDisplayText,
+  parseSetPeso,
+  sanitizeDecimalInput,
+  type ExerciseSetSnapshot,
   type ManualWorkoutLogInput,
   type UpdateWorkoutLogInput,
   type WorkoutLog,
@@ -288,3 +292,77 @@ test('filters workout logs strictly belonging to the selected quarter', () => {
   )
   assert.equal(emptyLogs.length, 0)
 })
+
+test('formatSetDisplayText formats reps with and without peso', () => {
+  // Con peso decimal
+  assert.equal(formatSetDisplayText(12, 50.5), '12 reps @ 50.5 kg')
+  // Con peso entero
+  assert.equal(formatSetDisplayText(10, 60), '10 reps @ 60 kg')
+  // Con peso 0
+  assert.equal(formatSetDisplayText(15, 0), '15 reps @ 0 kg')
+  // Con peso nulo o indefinido: solo repeticiones
+  assert.equal(formatSetDisplayText(12, null), '12 reps')
+  assert.equal(formatSetDisplayText(12, undefined), '12 reps')
+  // Con peso NaN
+  assert.equal(formatSetDisplayText(8, NaN), '8 reps')
+})
+
+test('parseSetPeso parses string and numeric inputs into float or null', () => {
+  assert.equal(parseSetPeso('50.5'), 50.5)
+  assert.equal(parseSetPeso('50,5'), 50.5)
+  assert.equal(parseSetPeso(75.25), 75.25)
+  assert.equal(parseSetPeso('0'), 0)
+  assert.equal(parseSetPeso(''), null)
+  assert.equal(parseSetPeso('   '), null)
+  assert.equal(parseSetPeso(null), null)
+  assert.equal(parseSetPeso(undefined), null)
+  assert.equal(parseSetPeso('invalido'), null)
+})
+
+test('workout log and snapshot interfaces correctly handle peso property', () => {
+  const setWithWeight: ExerciseSetSnapshot = {
+    setNumber: 1,
+    reps: 12,
+    peso: 50.5,
+    completed: true,
+  }
+
+  const setWithoutWeight: ExerciseSetSnapshot = {
+    setNumber: 2,
+    reps: 10,
+    peso: null,
+    completed: true,
+  }
+
+  const setUndefinedWeight: ExerciseSetSnapshot = {
+    setNumber: 3,
+    reps: 8,
+  }
+
+  assert.equal(setWithWeight.peso, 50.5)
+  assert.equal(setWithoutWeight.peso, null)
+  assert.equal(setUndefinedWeight.peso, undefined)
+
+  assert.equal(formatSetDisplayText(setWithWeight.reps, setWithWeight.peso), '12 reps @ 50.5 kg')
+  assert.equal(formatSetDisplayText(setWithoutWeight.reps, setWithoutWeight.peso), '10 reps')
+  assert.equal(formatSetDisplayText(setUndefinedWeight.reps, setUndefinedWeight.peso), '8 reps')
+})
+
+test('sanitizeDecimalInput and parseSetPeso support comma decimal separator like 2,5', () => {
+  // Saneado de caracteres no numéricos
+  assert.equal(sanitizeDecimalInput('2,5'), '2,5')
+  assert.equal(sanitizeDecimalInput('2.5'), '2.5')
+  assert.equal(sanitizeDecimalInput('100'), '100')
+  assert.equal(sanitizeDecimalInput('abc2,5xyz'), '2,5')
+  assert.equal(sanitizeDecimalInput('2,,5'), '2,5')
+  assert.equal(sanitizeDecimalInput('2.5.5'), '2.55')
+  assert.equal(sanitizeDecimalInput('2,5.5'), '2,55')
+
+  // Conversión con parseSetPeso
+  assert.equal(parseSetPeso('2,5'), 2.5)
+  assert.equal(parseSetPeso('2.5'), 2.5)
+  assert.equal(parseSetPeso('0,75'), 0.75)
+  assert.equal(parseSetPeso('12,25'), 12.25)
+})
+
+

@@ -1,56 +1,35 @@
 # Exercise Log
 
-Aplicación web para explorar ejercicios físicos, armar rutinas personalizadas y registrar sesiones de entrenamiento con seguimiento visual de progreso.
+Una aplicación web moderna para registrar entrenamientos, gestionar rutinas personalizadas y hacer seguimiento de la actividad física. Construida con un enfoque en rendimiento y usabilidad.
 
----
+## 🛠 Tecnologías Principales
 
-## 🚀 Características
-
-- **Explorador y buscador de ejercicios:** Filtrado por grupo muscular, categoría y equipamiento, con instrucciones paso a paso y demostraciones en GIF.
-- **Gestión de rutinas:** Creación, edición y administración de rutinas de entrenamiento personalizadas.
-- **Historial de entrenamientos:** Registro manual y edición de sesiones pasadas con desglose de ejercicios, series y repeticiones.
-- **Mapa de calor de actividad:** Seguimiento visual de consistencia diaria y frecuencia de entrenamientos completados.
-
----
-
-## 🛠️ Stack Tecnológico
-
-- **Framework:** Next.js 16 (App Router)
-- **Librería UI:** React 19
-- **Estilos & Componentes:** Tailwind CSS v4, Base UI (`@base-ui/react`), Lucide React
-- **Lenguaje:** TypeScript
-- **Testing:** Node.js native test runner (`node --test`)
-- **Gestor de paquetes:** npm
-
----
+- **Framework:** Next.js (App Router) con React
+- **Lenguaje:** TypeScript[cite: 1]
+- **Estilos:** Tailwind CSS[cite: 1]
+- **Componentes UI:** Shadcn UI / Radix UI[cite: 1]
+- **Backend & Autenticación:** Supabase (PostgreSQL)[cite: 1]
 
 ## 📂 Estructura del Proyecto
 
-```text
-exercise-log/
-├── app/                      # App Router de Next.js
-│   ├── layout.tsx            # Root layout con providers globales
-│   ├── page.tsx              # Punto de entrada principal (monta los screens)
-│   └── globals.css           # Configuración de estilos y temas de Tailwind
-├── src/
-│   ├── components/           # Componentes de UI modulares y modales
-│   │   ├── ActivityHeatmap.tsx       # Visualización de frecuencia de actividad
-│   │   ├── BottomTabs.tsx            # Navegación inferior principal
-│   │   ├── ExerciseCard.tsx          # Tarjeta básica de ejercicio
-│   │   ├── CollapsibleExerciseCard.tsx # Tarjeta desplegable para detalles
-│   │   ├── WorkoutLogAccordionItem.tsx # Elemento colapsable en historial
-│   │   └── *Modal.tsx                # Modales (creación, edición, técnica, etc.)
-│   ├── context/              # Estado global y persistencia
-│   │   ├── HistoryContext.tsx        # Historial de sesiones y logs
-│   │   ├── historyHelpers.ts         # Funciones puras y utilidades de fechas/logs
-│   │   └── RoutinesContext.tsx       # CRUD de rutinas personalizadas
-│   ├── hooks/                # Custom hooks (ej. useExercises.ts)
-│   ├── screens/              # Vistas principales de la aplicación
-│   │   ├── ExerciseSearchScreen.tsx  # Catálogo, filtros y búsqueda de ejercicios
-│   │   ├── RoutinesScreen.tsx        # Lista y gestión de rutinas
-│   │   ├── RoutineDetailScreen.tsx   # Detalle y edición de una rutina específica
-│   │   └── HistoryScreen.tsx         # Registro histórico y mapa de calor
-│   └── services/             # Lógica de datos y APIs externas
-│       └── exercises.ts              # Carga, tipado y filtrado de ejercicios
-└── components.json           # Configuración de componentes UI (estilo shadcn)
-```
+El proyecto sigue una arquitectura modular separando la lógica de negocio, la interfaz de usuario y los servicios de backend:
+
+### Directorios Principales
+
+- `/app`: Contiene el enrutamiento principal de Next.js (App Router). Aquí se encuentran las páginas de `/login`, `/register` y el layout global[cite: 1].
+- `/src/screens`: Son las "páginas" o vistas completas de la aplicación (ej. `ProfileScreen`, `HistoryScreen`, `RoutinesScreen`)[cite: 1].
+- `/src/components`: Componentes visuales específicos del dominio de la app, como `ActivityHeatmap`, `ExerciseCard` y varios modales (ej. `CreateRoutineModal`, `AuthRequiredModal`)[cite: 1].
+- `/components/ui`: Componentes base de diseño (botones, inputs, tabs, tarjetas) generados a través de Shadcn UI[cite: 1].
+- `/src/context`: Proveedores de estado global de React, manejando la información del historial (`HistoryContext`) y las rutinas (`RoutinesContext`)[cite: 1].
+- `/src/hooks`: Hooks personalizados para encapsular lógica compleja, como `useAuth` y `useExercises`[cite: 1].
+- `/src/services`: Capa de abstracción para las llamadas a la base de datos y APIs (ej. `exercises.ts`, `profile.ts`)[cite: 1].
+- `/lib`: Funciones utilitarias y configuración de clientes de terceros (como el cliente de `supabase.ts`)[cite: 1].
+- `/supabase`: Archivos SQL con la definición del esquema de la base de datos (`schema.sql`) y las migraciones de roles y perfiles[cite: 1].
+
+## ✨ Características de la Aplicación
+
+- **Autenticación:** Registro e inicio de sesión de usuarios[cite: 1].
+- **Gestión de Perfil:** Visualización y edición de datos del usuario[cite: 1].
+- **Rutinas:** Creación, edición y detalle de rutinas de ejercicio[cite: 1].
+- **Catálogo de Ejercicios:** Búsqueda de ejercicios y visualización de técnicas[cite: 1].
+- **Historial:** Registro manual de entrenamientos, visualización de historial en acordeón y un heatmap de actividad[cite: 1].

@@ -64,7 +64,7 @@ export function ExerciseSearchScreen() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell pb-24">
       <header className="app-header">
         <div className="brand-mark">
           <Activity size={22} strokeWidth={2.5} />

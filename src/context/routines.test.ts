@@ -201,3 +201,28 @@ test('uncheckRoutineSets unchecks all completed sets across all routine exercise
   assert.equal(resetRoutine.exercises[1].sets[1].completed, false)
 })
 
+test('updateSetPeso updates peso for a specific set', () => {
+  const exercise: RoutineExercise = {
+    id: 'ex-peso',
+    name: 'Press Banca',
+    gifUrl: '',
+    body_part: 'chest',
+    sets: [
+      { id: 's1', setNumber: 1, reps: 10, peso: null, completed: false },
+      { id: 's2', setNumber: 2, reps: 10, peso: null, completed: false },
+    ],
+  }
+
+  const updatePeso = (ex: RoutineExercise, setId: string, peso: number | null) => {
+    ex.sets = ex.sets.map((s) => (s.id === setId ? { ...s, peso } : s))
+  }
+
+  updatePeso(exercise, 's1', 62.5)
+  assert.equal(exercise.sets[0].peso, 62.5)
+  assert.equal(exercise.sets[1].peso, null)
+
+  updatePeso(exercise, 's1', null)
+  assert.equal(exercise.sets[0].peso, null)
+})
+
+

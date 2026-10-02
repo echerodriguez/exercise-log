@@ -175,7 +175,6 @@ h2 {
   border-radius: 18px;
   background: var(--white);
   box-shadow: 0 4px 16px rgba(20, 50, 30, 0.05);
-  margin-bottom: 8px;
 }
 
 .search-box {
@@ -183,8 +182,8 @@ h2 {
   align-items: center;
   gap: 10px;
   padding: 0 12px;
-  height: 48px;
-  min-height: 48px;
+  height: 42px;
+  min-height: 42px;
   border: 1.5px solid var(--line);
   border-radius: 13px;
   color: #7b9487;
@@ -1705,16 +1704,22 @@ footer {
 }
 
 .set-label {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 800;
   color: #3b5043;
-  min-width: 60px;
+  min-width: 50px;
 }
 
 .set-label.text-completed {
   text-decoration: line-through;
   opacity: 0.5;
   color: var(--muted);
+}
+
+.set-inputs-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .set-reps-input-wrap {
@@ -1728,17 +1733,21 @@ footer {
 }
 
 .set-reps-input {
-  width: 58px;
+  width: 50px;
   height: 38px;
   min-height: 38px;
   border: 1.5px solid var(--line);
   border-radius: 10px;
   background: #fbfdfb;
   text-align: center;
-  font-size: 16px !important;
+  font-size: 15px !important;
   font-weight: 800;
   color: var(--ink);
   outline: none;
+}
+
+.set-peso-input {
+  width: 56px;
 }
 
 .set-reps-input:focus {
@@ -1951,8 +1960,8 @@ footer {
   gap: 3.5px;
   font-size: 9px;
   font-weight: 700;
-  color: #8fa096;
-  padding-right: 4px;
+  color: var(--muted);
+  padding-right: 0;
 }
 
 .heatmap-day-labels span {
@@ -2049,7 +2058,7 @@ footer {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 2px;
 }
 
 .kpi-card {
@@ -2178,7 +2187,7 @@ footer {
 .workout-accordion-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   margin-left: 6px;
   flex-shrink: 0;
 }
@@ -2189,10 +2198,10 @@ footer {
 .log-toggle-chevron-btn {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 35px;
+  height: 35px;
+  min-width: 35px;
+  min-height: 35px;
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -2514,6 +2523,12 @@ footer {
   color: #435b4c;
 }
 
+.manual-set-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .manual-set-input-wrap {
   display: flex;
   align-items: center;
@@ -2521,16 +2536,20 @@ footer {
 }
 
 .manual-reps-input {
-  width: 56px;
+  width: 52px;
   height: 36px;
   min-height: 36px;
   border: 1px solid var(--line);
   border-radius: 8px;
   text-align: center;
-  font-size: 16px !important;
+  font-size: 15px !important;
   font-weight: 800;
   color: var(--ink);
   outline: none;
+}
+
+.manual-peso-input {
+  width: 58px;
 }
 
 .manual-remove-set-btn {
@@ -2917,7 +2936,7 @@ footer {
 }
 
 /* ==============================================================================
-   SEMANTIC REUSABLE UI CLASSES (Pure Standard CSS - No @apply)
+   SEMANTIC REUSABLE UI CLASSES
    ============================================================================== */
 
 /* Inputs & Form Controls */
@@ -3159,16 +3178,15 @@ footer {
 }
 
 .profile-tab-inactive {
-  background-color: #ffffff;
-  font-weight: 600;
-  color: #1a3325;
-  border: 1px solid #d3dfd6;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  background-color: transparent;
+  font-weight: 500;
+  color: #516b5c;
+  border: none;
+  box-shadow: none;
 }
 .profile-tab-inactive:hover {
-  background-color: #f6f9f6;
-  color: #0f2419;
-  border-color: #b8ccbe;
+  background-color: rgba(31, 88, 68, 0.05);
+  color: #14201a;
 }
 .profile-tab-inactive:active {
   transform: scale(0.98);
@@ -3442,5 +3460,13 @@ footer {
 }
 .auth-back-link:hover {
   color: #14201a;
+}
+
+.secondary-outline-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 700;
 }
 

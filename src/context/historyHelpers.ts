@@ -1,6 +1,7 @@
 export interface ExerciseSetSnapshot {
   setNumber: number
   reps: number
+  peso?: number | null
   completed?: boolean
 }
 
@@ -67,3 +68,32 @@ export function calculateActivityLevel(count: number): 0 | 1 | 2 | 3 {
   }
   return level
 }
+
+export function formatSetDisplayText(reps: number, peso?: number | null): string {
+  if (peso !== null && peso !== undefined && !isNaN(peso)) {
+    return `${reps} reps @ ${peso} kg`
+  }
+  return `${reps} reps`
+}
+
+export function parseSetPeso(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  const str = String(value).trim()
+  if (str === '') return null
+  const normalized = str.replace(',', '.')
+  const parsed = parseFloat(normalized)
+  return isNaN(parsed) ? null : parsed
+}
+
+export function sanitizeDecimalInput(value: string): string {
+  const cleaned = value.replace(/[^0-9.,]/g, '')
+  const match = cleaned.match(/[.,]/)
+  if (match && match.index !== undefined) {
+    const firstSep = match[0]
+    const before = cleaned.slice(0, match.index)
+    const after = cleaned.slice(match.index + 1).replace(/[.,]/g, '')
+    return `${before}${firstSep}${after}`
+  }
+  return cleaned
+}
+

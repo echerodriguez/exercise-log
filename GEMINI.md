@@ -1,75 +1,51 @@
-# Contexto y Reglas de Desarrollo — Exercise Log
+# Instrucciones para Asistentes de IA (Gemini / Copilot / Cursor)
 
-Este documento proporciona las directrices, convenciones arquitectónicas y contexto del proyecto para asistir eficazmente en el desarrollo, mantenimiento y refactorización del código base.
+Este archivo contiene el contexto del proyecto y las reglas de desarrollo. Lee esto antes de proponer código o refactorizaciones para mantener la consistencia en el proyecto **Exercise Log**.
 
----
+## 🧠 Contexto del Proyecto
+Exercise Log es una aplicación web (PWA/Mobile-first) para registrar entrenamientos físicos, visualizar el progreso mediante heatmaps y gestionar rutinas. 
 
-## 📌 Visión General del Proyecto
-
-**Exercise Log** es una aplicación web interactiva (mobile-first) para registrar entrenamientos, planificar rutinas personalizadas, buscar ejercicios con instrucciones detalladas y seguir la consistencia de entrenamiento mediante un mapa de calor (*activity heatmap*).
-
----
-
-## 🛠️ Stack Tecnológico
-
+## 🛠 Stack Tecnológico
 - **Framework:** Next.js (App Router)
-- **Librería UI:** React 19
-- **Lenguaje:** TypeScript (modo estricto)
-- **Estilos:** Tailwind CSS v4 con variables CSS
-- **Componentes:** Base UI (`@base-ui/react`), Lucide React (iconografía)
-- **Gestor de Paquetes:** `pnpm`
-- **Testing:** Test runner nativo de Node.js (`node --test`)
+- **Lenguaje:** TypeScript (Estricto)
+- **Estilos:** Tailwind CSS
+- **UI Kit:** Radix UI + Shadcn UI
+- **Backend/DB:** Supabase (PostgreSQL)
 
----
+## 📁 Reglas de Arquitectura y Estructura
+Al crear o modificar archivos, respeta esta organización estricta:
 
-## 🏗️ Arquitectura y Estructura de Archivos
+- `/app`: Solo para el enrutamiento de Next.js (App Router). Contiene `page.tsx`, `layout.tsx`, etc. Trata de mantener estas páginas ligeras y delegar la vista a `/src/screens`.
+- `/src/screens`: Vistas completas de la aplicación (ej. `ProfileScreen.tsx`, `HistoryScreen.tsx`). Se importan desde las rutas en `/app`.
+- `/src/components`: Componentes específicos del dominio de la app (ej. `ActivityHeatmap.tsx`, `ExerciseCard.tsx`, Modales).
+- `/components/ui`: **SOLO** componentes base de UI generados por Shadcn (botones, inputs, tabs). No crear componentes de negocio aquí.
+- `/src/context`: Proveedores de estado (React Context) para datos globales (Rutinas, Historial).
+- `/src/services`: Toda llamada a Supabase o lógica de base de datos debe estar encapsulada aquí (ej. `exercises.ts`, `profile.ts`). **Nunca** hacer llamadas directas a Supabase desde los componentes de UI.
+- `/src/hooks`: Custom hooks (ej. `useAuth.ts`, `useExercises.ts`).
+- `/lib`: Utilidades genéricas (`utils.ts`) y configuración de clientes (`supabase.ts`).
 
-```text
-exercise-log/
-├── app/                      # App Router de Next.js
-│   ├── layout.tsx            # Root layout con providers globales
-│   ├── page.tsx              # Punto de entrada principal (monta los screens)
-│   └── globals.css           # Configuración de estilos y temas de Tailwind
-├── src/
-│   ├── components/           # Componentes de UI modulares y modales
-│   │   ├── ActivityHeatmap.tsx       # Visualización de frecuencia de actividad
-│   │   ├── BottomTabs.tsx            # Navegación inferior principal
-│   │   ├── ExerciseCard.tsx          # Tarjeta básica de ejercicio
-│   │   ├── CollapsibleExerciseCard.tsx # Tarjeta desplegable para detalles
-│   │   ├── WorkoutLogAccordionItem.tsx # Elemento colapsable en historial
-│   │   └── *Modal.tsx                # Modales (creación, edición, técnica, etc.)
-│   ├── context/              # Estado global y persistencia
-│   │   ├── HistoryContext.tsx        # Historial de sesiones y logs
-│   │   ├── historyHelpers.ts         # Funciones puras y utilidades de fechas/logs
-│   │   └── RoutinesContext.tsx       # CRUD de rutinas personalizadas
-│   ├── hooks/                # Custom hooks (ej. useExercises.ts)
-│   ├── screens/              # Vistas principales de la aplicación
-│   │   ├── ExerciseSearchScreen.tsx  # Catálogo, filtros y búsqueda de ejercicios
-│   │   ├── RoutinesScreen.tsx        # Lista y gestión de rutinas
-│   │   ├── RoutineDetailScreen.tsx   # Detalle y edición de una rutina específica
-│   │   └── HistoryScreen.tsx         # Registro histórico y mapa de calor
-│   └── services/             # Lógica de datos y APIs externas
-│       └── exercises.ts              # Carga, tipado y filtrado de ejercicios
-└── components.json           # Configuración de componentes UI (estilo shadcn)
-```
+## ✍️ Reglas de Código y Convenciones
 
----
+1. **Componentes de React:**
+   - Usa componentes funcionales y *arrow functions*.
+   - Si un componente usa hooks o interactúa con el DOM, asegúrate de incluir `"use client";` al inicio del archivo, ya que estamos usando Next.js App Router.
+   - Nombra los archivos en PascalCase para componentes (`MiComponente.tsx`) y camelCase para utilidades/hooks (`useAuth.ts`).
 
-## 💻 Convenciones de Código y Buenas Prácticas
+2. **TypeScript:**
+   - Tipar siempre las *props*, respuestas de API y variables de estado.
+   - Evitar el uso de `any`. Usa `unknown` si es estrictamente necesario y valida el tipo.
 
-### TypeScript y Tipado
-- Utilizar tipos e interfaces explícitos para todas las entidades (`Exercise`, `Routine`, `WorkoutLog`, `SetEntry`).
-- Prohibido el uso de `any`; recurrir a tipos genéricos o `unknown` con type guards si la estructura no está garantizada.
-- Co-ubicar las interfaces de componentes dentro del mismo archivo o en archivos `.types.ts` si se comparten entre módulos.
+3. **Estilos (Tailwind CSS):**
+   - Usa la función utilitaria `cn()` (ubicada en `lib/utils.ts`) para combinar clases dinámicas de Tailwind, especialmente cuando crees o modifiques componentes reutilizables.
 
-### Componentes y UI
-- Priorizar componentes funcionales limpios con Server Components por defecto en Next.js, añadiendo `'use client'` únicamente donde haya interactividad, hooks o acceso al DOM.
-- Los modales deben implementar cierre con tecla `Escape`, accesibilidad ARIA adecuada y bloqueo de scroll cuando estén abiertos.
-- Diseño enfocado en dispositivos móviles (mobile-first), utilizando `BottomTabs` para la navegación táctil y adaptando gradualmente la visualización para pantallas más grandes mediante clases responsivas de Tailwind.
+4. **Base de Datos (Supabase):**
+   - Importa el cliente desde `lib/supabase.ts`.
+   - Maneja los errores de Supabase explícitamente y devuelve tipados consistentes desde `/src/services`.
+   - Considera el uso de Row Level Security (RLS) al hacer consultas; el usuario debe estar autenticado.
 
-### Estilos
-- Usar clases utilitarias de Tailwind CSS.
-- Centralizar clases condicionales mediante la función utilitaria `cn(...)` ubicada en `src/lib/utils.ts`.
+5. **Idioma:**
+   - El código (variables, funciones, componentes) debe estar en **Inglés** (ej. `WorkoutLog`, `useExercises`).
+   - El contenido visible para el usuario (UI) debe estar en **Español** (ej. "Historial", "Iniciar Sesión").
 
 ## Buenas Prácticas de la Industria:
 
@@ -77,8 +53,6 @@ exercise-log/
    - Aplica un manejo de errores robusto (try/catch donde corresponda).
    - Asegura un tipado estricto y correcto en TypeScript.
    - Continúa respetando el enfoque mobile-first y el uso coherente de los componentes de `components/ui`.
-
----
 
 ## 🧪 Estrategia de Testing
 
@@ -88,13 +62,3 @@ exercise-log/
   - Reducers, helpers y funciones de cálculo en `src/context/*.test.ts`.
   - Transformaciones y lógica de filtrado de datos en `src/services/*.test.ts`.
 - Antes de entregar cambios que modifiquen lógica de cálculo de repeticiones, fechas del heatmap o persistencia, verificar que las pruebas pasen con `pnpm test`.
-
----
-
-## 🤖 Directrices para Gemini
-
-Al proponer modificaciones o generar nuevo código:
-1. **Verificar dependencias existentes:** No introduzcas nuevas librerías si se puede resolver con lo que ya está instalado (`lucide-react`, `@base-ui/react`, utilidades nativas).
-2. **Respetar la arquitectura en capas:** Mantén los componentes de presentación libres de lógica de sincronización o persistencia directa.
-3. **Consistencia en el idioma:** Las interfaces de usuario actuales y mensajes al usuario están en español; mantén esa localización constante.
-4. **Pruebas automáticas:** Si agregas funciones a `historyHelpers.ts` o `exercises.ts`, genera o actualiza simultáneamente sus correspondientes pruebas unitarias.

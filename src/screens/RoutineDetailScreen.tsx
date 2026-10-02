@@ -82,7 +82,7 @@ export function RoutineDetailScreen({
   const overallProgress = totalSetsCount > 0 ? (completedSetsCount / totalSetsCount) * 100 : 0
 
   return (
-    <main className="app-shell">
+    <main className="app-shell pb-24">
       <header className="app-header routine-detail-header">
         <button
           type="button"

@@ -5,6 +5,8 @@ import { Calendar, Dumbbell, Minus, Plus, Trash2, X } from 'lucide-react'
 import {
   formatDateKey,
   formatReadableDate,
+  parseSetPeso,
+  sanitizeDecimalInput,
   useHistory,
   type ExerciseSnapshot,
   type ExerciseSetSnapshot,
@@ -18,6 +20,19 @@ interface ManualWorkoutModalProps {
   onGoToRoutines?: () => void
 }
 
+interface FormExerciseSetSnapshot {
+  setNumber: number
+  reps: number
+  peso?: number | string | null
+  completed?: boolean
+}
+
+interface FormExerciseSnapshot {
+  name: string
+  setsCount: number
+  sets: FormExerciseSetSnapshot[]
+}
+
 export function ManualWorkoutModal({
   isOpen,
   onClose,
@@ -28,19 +43,20 @@ export function ManualWorkoutModal({
   const { addManualWorkoutLog } = useHistory()
 
   const [selectedRoutineId, setSelectedRoutineId] = useState<string>('')
-  const [exercises, setExercises] = useState<ExerciseSnapshot[]>([])
+  const [exercises, setExercises] = useState<FormExerciseSnapshot[]>([])
 
   useEffect(() => {
     if (isOpen) {
       if (routines.length > 0) {
         const first = routines[0]
         setSelectedRoutineId(first.id)
-        const mapped: ExerciseSnapshot[] = first.exercises.map((ex) => ({
+        const mapped: FormExerciseSnapshot[] = first.exercises.map((ex) => ({
           name: ex.name,
           setsCount: ex.sets.length,
           sets: ex.sets.map((s) => ({
             setNumber: s.setNumber,
             reps: s.reps,
+            peso: s.peso !== undefined && s.peso !== null ? s.peso : null,
             completed: true,
           })),
         }))
@@ -56,12 +72,13 @@ export function ManualWorkoutModal({
     setSelectedRoutineId(routineId)
     const routine = routines.find((r) => r.id === routineId)
     if (routine) {
-      const mapped: ExerciseSnapshot[] = routine.exercises.map((ex) => ({
+      const mapped: FormExerciseSnapshot[] = routine.exercises.map((ex) => ({
         name: ex.name,
         setsCount: ex.sets.length,
         sets: ex.sets.map((s) => ({
           setNumber: s.setNumber,
           reps: s.reps,
+          peso: s.peso !== undefined && s.peso !== null ? s.peso : null,
           completed: true,
         })),
       }))
@@ -82,9 +99,10 @@ export function ManualWorkoutModal({
         if (i === exerciseIndex) {
           const nextSetNumber = ex.sets.length + 1
           const lastReps = ex.sets.length > 0 ? ex.sets[ex.sets.length - 1].reps : 10
-          const newSet: ExerciseSetSnapshot = {
+          const newSet: FormExerciseSetSnapshot = {
             setNumber: nextSetNumber,
             reps: lastReps,
+            peso: null,
             completed: true,
           }
           const nextSets = [...ex.sets, newSet]
@@ -136,17 +154,47 @@ export function ManualWorkoutModal({
     )
   }
 
+  const handleUpdatePeso = (exerciseIndex: number, setIndex: number, value: string) => {
+    setExercises((prev) =>
+      prev.map((ex, i) => {
+        let updated = ex
+        if (i === exerciseIndex) {
+          const nextSets = ex.sets.map((s, sI) => {
+            let updatedSet = s
+            if (sI === setIndex) {
+              updatedSet = { ...s, peso: value }
+            }
+            return updatedSet
+          })
+          updated = { ...ex, sets: nextSets }
+        }
+        return updated
+      })
+    )
+  }
+
   const selectedRoutine = routines.find((r) => r.id === selectedRoutineId)
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedDateKey || !selectedRoutine || exercises.length === 0) return
 
+    const sanitizedExercises: ExerciseSnapshot[] = exercises.map((ex) => ({
+      name: ex.name,
+      setsCount: ex.sets.length,
+      sets: ex.sets.map((set) => ({
+        setNumber: set.setNumber,
+        reps: set.reps,
+        peso: parseSetPeso(set.peso),
+        completed: set.completed,
+      })),
+    }))
+
     await addManualWorkoutLog({
       routineId: selectedRoutine.id,
       routineName: selectedRoutine.name,
       dateKey: selectedDateKey,
-      exercisesSnapshot: exercises,
+      exercisesSnapshot: sanitizedExercises,
     })
 
     showToast(`¡"${selectedRoutine.name}" registrada en ${formatReadableDate(selectedDateKey)}!`)
@@ -296,23 +344,44 @@ export function ManualWorkoutModal({
                             {ex.sets.map((set, setIdx) => (
                               <div key={setIdx} className="manual-set-row">
                                 <span className="manual-set-num">Serie {set.setNumber}</span>
-                                <div className="manual-set-input-wrap">
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max="999"
-                                    value={set.reps}
-                                    onChange={(e) =>
-                                      handleUpdateReps(
-                                        exIdx,
-                                        setIdx,
-                                        parseInt(e.target.value, 10) || 1
-                                      )
-                                    }
-                                    className="manual-reps-input"
-                                    aria-label={`Repeticiones serie ${set.setNumber}`}
-                                  />
-                                  <span className="manual-reps-tag">reps</span>
+                                <div className="manual-set-inputs">
+                                  <div className="manual-set-input-wrap">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="999"
+                                      value={set.reps}
+                                      onChange={(e) =>
+                                        handleUpdateReps(
+                                          exIdx,
+                                          setIdx,
+                                          parseInt(e.target.value, 10) || 1
+                                        )
+                                      }
+                                      className="manual-reps-input"
+                                      aria-label={`Repeticiones serie ${set.setNumber}`}
+                                    />
+                                    <span className="manual-reps-tag">reps</span>
+                                  </div>
+
+                                  <div className="manual-set-input-wrap">
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="0"
+                                      value={set.peso !== null && set.peso !== undefined ? set.peso : ''}
+                                      onChange={(e) =>
+                                        handleUpdatePeso(
+                                          exIdx,
+                                          setIdx,
+                                          sanitizeDecimalInput(e.target.value)
+                                        )
+                                      }
+                                      className="manual-reps-input manual-peso-input"
+                                      aria-label={`Peso en kg para serie ${set.setNumber}`}
+                                    />
+                                    <span className="manual-reps-tag">kg</span>
+                                  </div>
                                 </div>
 
                                 <button

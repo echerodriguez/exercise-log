@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { ExerciseTechniqueModal } from './ExerciseTechniqueModal'
 import { getExerciseDetails } from '../services/exercises'
+import { sanitizeDecimalInput } from '../context/HistoryContext'
 import {
   useRoutines,
   type ExerciseSet,
@@ -36,14 +37,26 @@ function SetRow({
   onRemoveSet,
   onToggleCompleted,
 }: SetRowProps) {
-  const { updateSetReps } = useRoutines()
+  const { updateSetReps, updateSetPeso } = useRoutines()
   const [localReps, setLocalReps] = useState(String(set.reps))
+  const [localPeso, setLocalPeso] = useState(
+    set.peso !== null && set.peso !== undefined ? String(set.peso) : ''
+  )
 
   useEffect(() => {
     setLocalReps(String(set.reps))
   }, [set.reps])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const currentParsed =
+      localPeso.trim() === '' ? null : parseFloat(localPeso.replace(',', '.'))
+    const externalParsed = set.peso !== null && set.peso !== undefined ? set.peso : null
+    if (externalParsed !== currentParsed) {
+      setLocalPeso(externalParsed !== null ? String(externalParsed) : '')
+    }
+  }, [set.peso])
+
+  const handleRepsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     setLocalReps(val)
     const num = parseInt(val, 10)
@@ -52,11 +65,41 @@ function SetRow({
     }
   }
 
-  const handleBlur = () => {
+  const handleRepsBlur = () => {
     const num = parseInt(localReps, 10)
     const valid = isNaN(num) || num < 1 ? 10 : num
     setLocalReps(String(valid))
     updateSetReps(routineId, exerciseId, set.id, valid)
+  }
+
+  const handlePesoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = sanitizeDecimalInput(e.target.value)
+    setLocalPeso(cleaned)
+    if (cleaned.trim() === '') {
+      updateSetPeso(routineId, exerciseId, set.id, null)
+      return
+    }
+    const normalized = cleaned.replace(',', '.')
+    const parsed = parseFloat(normalized)
+    if (!isNaN(parsed) && parsed >= 0) {
+      updateSetPeso(routineId, exerciseId, set.id, parsed)
+    }
+  }
+
+  const handlePesoBlur = () => {
+    if (localPeso.trim() === '') {
+      setLocalPeso('')
+      updateSetPeso(routineId, exerciseId, set.id, null)
+      return
+    }
+    const normalized = localPeso.replace(',', '.')
+    const parsed = parseFloat(normalized)
+    if (isNaN(parsed) || parsed < 0) {
+      setLocalPeso('')
+      updateSetPeso(routineId, exerciseId, set.id, null)
+    } else {
+      updateSetPeso(routineId, exerciseId, set.id, parsed)
+    }
   }
 
   return (
@@ -85,18 +128,34 @@ function SetRow({
         Serie {set.setNumber}
       </span>
 
-      <div className={`set-reps-input-wrap ${set.completed ? 'input-completed' : ''}`}>
-        <input
-          type="number"
-          min="1"
-          max="999"
-          value={localReps}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          className="set-reps-input"
-          aria-label={`Repeticiones para Serie ${set.setNumber}`}
-        />
-        <span className="set-reps-unit">reps</span>
+      <div className="set-inputs-group">
+        <div className={`set-reps-input-wrap ${set.completed ? 'input-completed' : ''}`}>
+          <input
+            type="number"
+            min="1"
+            max="999"
+            value={localReps}
+            onChange={handleRepsChange}
+            onBlur={handleRepsBlur}
+            className="set-reps-input"
+            aria-label={`Repeticiones para Serie ${set.setNumber}`}
+          />
+          <span className="set-reps-unit">reps</span>
+        </div>
+
+        <div className={`set-reps-input-wrap set-peso-input-wrap ${set.completed ? 'input-completed' : ''}`}>
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="0"
+            value={localPeso}
+            onChange={handlePesoChange}
+            onBlur={handlePesoBlur}
+            className="set-reps-input set-peso-input"
+            aria-label={`Peso en kg para Serie ${set.setNumber}`}
+          />
+          <span className="set-reps-unit">kg</span>
+        </div>
       </div>
 
       <button
@@ -210,7 +269,7 @@ export function CollapsibleExerciseCard({
                 title="Consultar técnica de ejecución"
               >
                 <Info size={13} />
-                <span>Info</span>
+                <span>Ver</span>
               </button>
               <span className={`exercise-progress-badge ${isAllCompleted ? 'all-done' : ''}`}>
                 {completedCount}/{setsCount}

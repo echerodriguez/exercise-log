@@ -2,6 +2,7 @@ export interface ExerciseSet {
   id: string
   setNumber: number
   reps: number
+  peso?: number | null
   completed: boolean
 }
 
@@ -14,12 +15,21 @@ export function generateUUID(): string {
 
 export function normalizeExerciseSets(rawSets: unknown, legacyReps?: unknown): ExerciseSet[] {
   if (Array.isArray(rawSets) && rawSets.length > 0) {
-    return rawSets.map((s, index) => ({
-      id: s.id ? String(s.id) : generateUUID(),
-      setNumber: typeof s.setNumber === 'number' ? s.setNumber : index + 1,
-      reps: typeof s.reps === 'number' && !isNaN(s.reps) && s.reps > 0 ? s.reps : 10,
-      completed: Boolean(s.completed),
-    }))
+    return rawSets.map((s, index) => {
+      const parsedPeso =
+        typeof s.peso === 'number' && !isNaN(s.peso)
+          ? s.peso
+          : s.peso === null
+          ? null
+          : undefined
+      return {
+        id: s.id ? String(s.id) : generateUUID(),
+        setNumber: typeof s.setNumber === 'number' ? s.setNumber : index + 1,
+        reps: typeof s.reps === 'number' && !isNaN(s.reps) && s.reps > 0 ? s.reps : 10,
+        peso: parsedPeso,
+        completed: Boolean(s.completed),
+      }
+    })
   }
 
   if (typeof rawSets === 'number' && rawSets > 0) {

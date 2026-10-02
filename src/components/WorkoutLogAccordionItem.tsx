@@ -11,7 +11,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
-import type { WorkoutLog } from '../context/HistoryContext'
+import { formatSetDisplayText, type WorkoutLog } from '../context/HistoryContext'
 
 interface WorkoutLogAccordionItemProps {
   log: WorkoutLog
@@ -25,11 +25,12 @@ function formatReadableDate(dateKey: string): string {
   const date = new Date(year, month - 1, day)
   const formatted = date.toLocaleDateString('es-ES', {
     weekday: 'long',
-    day: 'numeric',
-    month: 'long',
+    day: '2-digit',
+    month: '2-digit',
     year: 'numeric',
   })
-  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+  const clean = formatted.replace(',', '').trim()
+  return clean.charAt(0).toLowerCase() + clean.slice(1)
 }
 
 export function WorkoutLogAccordionItem({
@@ -129,7 +130,9 @@ export function WorkoutLogAccordionItem({
                       }`}
                     >
                       <span className="accordion-set-num">Serie {set.setNumber}</span>
-                      <span className="accordion-set-reps">{set.reps} reps</span>
+                      <span className="accordion-set-reps">
+                        {formatSetDisplayText(set.reps, set.peso)}
+                      </span>
                       {set.completed && <CheckCircle2 size={11} className="done-check-icon" />}
                     </div>
                   ))}
